@@ -7,9 +7,10 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# الإعدادات
+# الإعدادات الخاصة بك
 # -------------------------------------------------------------
-BOT_TOKEN_DEFAULT = "7649581977:AAEUw7v4yK88m1-uVn6w7-O4M9n4y12345"
+BOT_TOKEN_DEFAULT = "8791458947:AAEjW4u238Ij5kT4V9ntmyN7JHZxQFA6HsU"
+ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
 DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
@@ -59,6 +60,7 @@ def save_data(data):
 
 bot_data = load_data()
 
+# الحصول على العقدة/القسم الحالي بناءً على المسار
 def get_node_by_path(path):
     curr = bot_data
     for step in path:
@@ -128,6 +130,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['path'] = path
         await show_current_menu(update, context)
 
+# إضافة زر جديد باستخدام الأمر /add
 async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
@@ -145,6 +148,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
+# حفظ الصورة للقسم الواقف فيه حالياً
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = context.user_data.get('path', [])
     node = get_node_by_path(path)
