@@ -23,16 +23,31 @@ def load_data():
                 return json.load(f)
         except Exception:
             pass
+    # الهيكل الافتراضي للبوت
     return {
-        "start": {"photo_id": None, "caption": "مرحباً بك! اختر المستوى:"},
-        "structure": {
+        "photo_id": None,
+        "caption": "مرحباً بك! اختر المستوى:",
+        "buttons": {
             "Level 1": {
                 "photo_id": None,
-                "children": {}
+                "caption": "مرحباً بك في Level 1",
+                "buttons": {
+                    "Anatomy": {
+                        "photo_id": None,
+                        "caption": "قسم التشريح Anatomy",
+                        "buttons": {}
+                    },
+                    "Physiology": {
+                        "photo_id": None,
+                        "caption": "قسم الفيزيولوجي Physiology",
+                        "buttons": {}
+                    }
+                }
             },
             "Level 2": {
                 "photo_id": None,
-                "children": {}
+                "caption": "مرحباً بك في Level 2",
+                "buttons": {}
             }
         }
     }
@@ -46,67 +61,47 @@ def save_data(data):
 
 bot_data = load_data()
 
-# دالة للبحث والتعديل في الشجرة أو إنشائها إن لم تكن موجودة
-def update_or_create_node(tree, target_name, photo_id):
-    if target_name.lower() in ["start", "/start"]:
-        if "start" not in tree:
-            tree["start"] = {}
-        tree["start"]["photo_id"] = photo_id
+# البحث عن عقدة/زر بالاسم داخل الهيكل الشجري وتحديث صورته
+def update_node_photo(tree, target_name, photo_id):
+    if target_name.lower() in ["start", "/start", "البداية"]:
+        tree["photo_id"] = photo_id
         return True
 
-    struct = tree.get("structure", {})
-
-    # 1. إذا كان الاسم موجوداً في المستوى الأول مباشر
-    if target_name in struct:
-        struct[target_name]["photo_id"] = photo_id
+    buttons = tree.get("buttons", {})
+    if target_name in buttons:
+        buttons[target_name]["photo_id"] = photo_id
         return True
 
-    # 2. البحث داخل الأبناء الموزعين
-    def search_recursive(nodes):
-        for key, node in nodes.items():
-            if key == target_name:
-                node["photo_id"] = photo_id
+    for btn_name, btn_node in buttons.items():
+        if isinstance(btn_node, dict):
+            if update_node_photo(btn_node, target_name, photo_id):
                 return True
-            if "children" in node and isinstance(node["children"], dict):
-                if search_recursive(node["children"]):
-                    return True
-        return False
+    return False
 
-    if search_recursive(struct):
-        return True
-
-    # 3. إذا لم يكن موجوداً نهائياً، أضفه كزر جديد في الشجرة الرئيسية ليعمل فوراً
-    struct[target_name] = {
-        "photo_id": photo_id,
-        "children": {}
-    }
-    return True
-
+# الحصول على العقدة الحالية بناءً على المسار
 def get_node_by_path(path):
-    curr = bot_data.get("structure", {})
-    target_node = None
+    curr = bot_data
     for step in path:
-        if step in curr:
-            target_node = curr[step]
-            curr = target_node.get("children", {})
+        if isinstance(curr, dict) and "buttons" in curr and step in curr["buttons"]:
+            curr = curr["buttons"][step]
         else:
             return None
-    return target_node, curr
+    return curr
 
 async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = context.user_data.get('path', [])
+    node = get_node_by_path(path)
     
-    if not path:
-        node = bot_data.get("start", {})
-        children = bot_data.get("structure", {})
-    else:
-        node, children = get_node_by_path(path)
-        if node is None:
-            node = {}
-            children = {}
+    if node is None:
+        path = []
+        context.user_data['path'] = []
+        node = bot_data
 
+    buttons = node.get("buttons", {})
     keyboard = []
-    keys = list(children.keys()) if isinstance(children, dict) else []
+    keys = list(buttons.keys())
+    
+    # تنظيم الأزرار صفين صفين
     for i in range(0, len(keys), 2):
         keyboard.append([KeyboardButton(k) for k in keys[i:i+2]])
 
@@ -118,6 +113,7 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = node.get("caption") or (path[-1] if path else "اختر من القائمة:")
     photo_id = node.get("photo_id")
 
+    # إرسال الصورة إذا كانت مضافة للقسم الحالي
     if photo_id:
         await update.message.reply_photo(photo=photo_id, caption=caption, reply_markup=reply_markup)
     else:
@@ -143,16 +139,37 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_current_menu(update, context)
         return
 
-    if not path:
-        children = bot_data.get("structure", {})
-    else:
-        _, children = get_node_by_path(path)
+    node = get_node_by_path(path)
+    buttons = node.get("buttons", {}) if node else {}
 
-    if isinstance(children, dict) and text in children:
+    if text in buttons:
         path.append(text)
         context.user_data['path'] = path
         await show_current_menu(update, context)
 
+# إضافة زر جديد تحت القسم الحالي
+async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    if user_id != ADMIN_ID:
+        return
+
+    new_btn_name = " ".join(context.args).strip()
+    if not new_btn_name:
+        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 3`")
+        return
+
+    path = context.user_data.get('path', [])
+    node = get_node_by_path(path)
+
+    if node is not None:
+        if "buttons" not in node:
+            node["buttons"] = {}
+        node["buttons"][new_btn_name] = {"photo_id": None, "caption": f"قسم {new_btn_name}", "buttons": {}}
+        save_data(bot_data)
+        await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح في القسم الحالي!")
+        await show_current_menu(update, context)
+
+# رفع الصورة وربطها باسم الزر المكتوب في الـ Caption
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
@@ -160,20 +177,24 @@ async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     caption = (update.message.caption or "").strip()
     if not caption:
-        await update.message.reply_text("❌ يرجى كتابة اسم الزر أو القسم (مثلاً: start أو Level 1) في الـ Caption مع الصورة.")
+        await update.message.reply_text("❌ يرجى كتابة اسم الزر بالظبط في الـ Caption الخاص بالصورة (مثلاً: start أو Level 1 أو Anatomy).")
         return
 
     photo_id = update.message.photo[-1].file_id
+    success = update_node_photo(bot_data, caption, photo_id)
 
-    update_or_create_node(bot_data, caption, photo_id)
-    save_data(bot_data)
-    await update.message.reply_text(f"✅ تم حفظ الصورة بنجاح وربطها بالقسم/الزر: `{caption}`")
+    if success:
+        save_data(bot_data)
+        await update.message.reply_text(f"✅ تم حفظ الصورة بنجاح وربطها بالزر/القسم: `{caption}`")
+    else:
+        await update.message.reply_text(f"⚠️ لم يتم العثور على زر باسم `{caption}`.\nتأكد من كتابة الاسم تماماً كما هو ظاهراً في الأزرار (أو أضف الزر أولاً باستخدام /add).")
 
 if __name__ == '__main__':
     TOKEN = os.getenv("BOT_TOKEN", BOT_TOKEN)
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("add", add_button_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo_upload))
 
