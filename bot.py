@@ -85,18 +85,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = ReplyKeyboardMarkup(MAIN_MENU, resize_keyboard=True)
     await update.message.reply_text("Welcome! Select Level:", reply_markup=reply_markup)
 
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in ADMIN_IDS:
         return
 
     caption = update.message.caption
     if not caption:
-        await update.message.reply_text("❌ يرجى كتابة اسم المادة والنوع في الـ Caption للملف.\nمثال: Human Anatomy I theoretical")
+        await update.message.reply_text(
+            "❌ يرجى كتابة اسم المادة والنوع في الـ Caption للشرح/الصورة/الملف.\n"
+            "مثال للـ PDF: Human Anatomy I theoretical\n"
+            "مثال للصورة: Human Anatomy I practical"
+        )
         return
 
-    doc = update.message.document
-    file_id = doc.file_id
+    file_id = None
+    file_type = None
+
+    if update.message.document:
+        file_id = update.message.document.file_id
+        file_type = "document"
+    elif update.message.photo:
+        file_id = update.message.photo[-1].file_id
+        file_type = "photo"
+
+    if not file_id:
+        return
 
     key = clean_text(caption).lower()
 
@@ -104,10 +118,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if key not in db:
         db[key] = []
     
-    db[key].append({"file_id": file_id, "file_name": doc.file_name})
+    db[key].append({"file_id": file_id, "type": file_type})
     save_data(db)
 
-    await update.message.reply_text(f"✅ تم حفظ الملف بنجاح تحت الخانة:\n`{caption}`", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ تم حفظ الوسيط بنجاح تحت الخانة:\n`{key}`", parse_mode="Markdown")
 
 async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -115,7 +129,7 @@ async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not context.args:
-        await update.message.reply_text("❌ يرجى كتابة الكود أو اسم الخانة بعد الأمر.\nمثال:\n`/delete Human Anatomy I theoretical`", parse_mode="Markdown")
+        await update.message.reply_text("❌ يرجى كتابة اسم الخانة بعد الأمر.\nمثال:\n`/delete Human Anatomy I practical`", parse_mode="Markdown")
         return
 
     key = clean_text(" ".join(context.args)).lower()
@@ -124,9 +138,9 @@ async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if key in db:
         del db[key]
         save_data(db)
-        await update.message.reply_text(f"🗑️ تم حذف الملفات الخاصة بـ: `{key}` بنجاح!", parse_mode="Markdown")
+        await update.message.reply_text(f"🗑️ تم حذف المحتويات الخاصة بـ: `{key}` بنجاح!", parse_mode="Markdown")
     else:
-        await update.message.reply_text("❌ لم يتم العثور على ملفات بهذا الاسم.")
+        await update.message.reply_text("❌ لم يتم العثور على محتويات بهذا الاسم.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = update.message.text
@@ -189,7 +203,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if search_key in db and db[search_key]:
             for item in db[search_key]:
-                await update.message.reply_document(document=item["file_id"])
+                if isinstance(item, dict):
+                    if item.get("type") == "photo":
+                        await update.message.reply_photo(photo=item["file_id"])
+                    else:
+                        await update.message.reply_document(document=item["file_id"])
+                else:
+                    await update.message.reply_document(document=item)
         else:
             await update.message.reply_text(f"No materials uploaded yet for {current_subj} ({text}).")
         return
@@ -233,7 +253,7 @@ def run_bot():
             
             app.add_handler(CommandHandler("start", start))
             app.add_handler(CommandHandler("delete", delete_material))
-            app.add_handler(MessageHandler(filters.ATTACHMENT, handle_document))
+            app.add_handler(MessageHandler(filters.PHOTO | filters.ATTACHMENT, handle_media))
             app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
             
             print("Bot starting polling...")
