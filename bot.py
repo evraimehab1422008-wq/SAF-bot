@@ -23,7 +23,6 @@ def load_data():
                 return json.load(f)
         except Exception:
             pass
-    # الهيكل الافتراضي للبوت
     return {
         "photo_id": None,
         "caption": "مرحباً بك! اختر المستوى:",
@@ -61,24 +60,7 @@ def save_data(data):
 
 bot_data = load_data()
 
-# البحث عن عقدة/زر بالاسم داخل الهيكل الشجري وتحديث صورته
-def update_node_photo(tree, target_name, photo_id):
-    if target_name.lower() in ["start", "/start", "البداية"]:
-        tree["photo_id"] = photo_id
-        return True
-
-    buttons = tree.get("buttons", {})
-    if target_name in buttons:
-        buttons[target_name]["photo_id"] = photo_id
-        return True
-
-    for btn_name, btn_node in buttons.items():
-        if isinstance(btn_node, dict):
-            if update_node_photo(btn_node, target_name, photo_id):
-                return True
-    return False
-
-# الحصول على العقدة الحالية بناءً على المسار
+# الحصول على العقدة/القسم الحالي بناءً على المسار
 def get_node_by_path(path):
     curr = bot_data
     for step in path:
@@ -101,7 +83,6 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     keys = list(buttons.keys())
     
-    # تنظيم الأزرار صفين صفين
     for i in range(0, len(keys), 2):
         keyboard.append([KeyboardButton(k) for k in keys[i:i+2]])
 
@@ -115,7 +96,11 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # إرسال الصورة إذا كانت مضافة للقسم الحالي
     if photo_id:
-        await update.message.reply_photo(photo=photo_id, caption=caption, reply_markup=reply_markup)
+        try:
+            await update.message.reply_photo(photo=photo_id, caption=caption, reply_markup=reply_markup)
+        except Exception:
+            # في حالة وجود خطأ في الـ file_id يرسل نص فقط
+            await update.message.reply_text(text=caption, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text=caption, reply_markup=reply_markup)
 
@@ -147,7 +132,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['path'] = path
         await show_current_menu(update, context)
 
-# إضافة زر جديد تحت القسم الحالي
+# إضافة زر جديد داخل القسم الحالي
 async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
@@ -166,28 +151,26 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             node["buttons"] = {}
         node["buttons"][new_btn_name] = {"photo_id": None, "caption": f"قسم {new_btn_name}", "buttons": {}}
         save_data(bot_data)
-        await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح في القسم الحالي!")
+        await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!")
         await show_current_menu(update, context)
 
-# رفع الصورة وربطها باسم الزر المكتوب في الـ Caption
+# حفظ الصورة مباشرة للقسم الواقف فيه حالياً
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
         return
 
-    caption = (update.message.caption or "").strip()
-    if not caption:
-        await update.message.reply_text("❌ يرجى كتابة اسم الزر بالظبط في الـ Caption الخاص بالصورة (مثلاً: start أو Level 1 أو Anatomy).")
-        return
+    path = context.user_data.get('path', [])
+    node = get_node_by_path(path)
 
-    photo_id = update.message.photo[-1].file_id
-    success = update_node_photo(bot_data, caption, photo_id)
-
-    if success:
+    if node is not None:
+        photo_id = update.message.photo[-1].file_id
+        node["photo_id"] = photo_id
         save_data(bot_data)
-        await update.message.reply_text(f"✅ تم حفظ الصورة بنجاح وربطها بالزر/القسم: `{caption}`")
-    else:
-        await update.message.reply_text(f"⚠️ لم يتم العثور على زر باسم `{caption}`.\nتأكد من كتابة الاسم تماماً كما هو ظاهراً في الأزرار (أو أضف الزر أولاً باستخدام /add).")
+        
+        current_location = path[-1] if path else "صفحة البداية (Start)"
+        await update.message.reply_text(f"✅ تم ربط هذه الصورة بنجاح بـ: `{current_location}`")
+        await show_current_menu(update, context)
 
 if __name__ == '__main__':
     TOKEN = os.getenv("BOT_TOKEN", BOT_TOKEN)
