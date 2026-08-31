@@ -89,7 +89,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text(f"❌ حسابك غير مصرح له بالإيجاد.\nID حسابك هو: `{user_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ حسابك غير مصرح له.\nID: `{user_id}`", parse_mode="Markdown")
         return
 
     caption = update.message.caption
@@ -123,7 +123,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db[key].append({"file_id": file_id, "type": file_type})
     save_data(db)
 
-    await update.message.reply_text(f"✅ تم حفظ الوسيط بنجاح تحت الخانة:\n`{key}`", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ تم حفظ الملف بنجاح تحت الخانة:\n`{key}`", parse_mode="Markdown")
 
 async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -140,12 +140,15 @@ async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if key in db and db[key]:
         buttons = []
         for idx, item in enumerate(db[key]):
-            item_type = item.get("type", "document") if isinstance(item, dict) else "document"
-            btn_text = f"❌ حذف الملف رقم {idx + 1} ({item_type})"
-            buttons.append([InlineKeyboardButton(btn_text, callback_data=f"del_{key}_{idx}")])
+            f_type = "file"
+            if isinstance(item, dict):
+                f_type = "صورة 📷" if item.get("type") == "photo" else "ملف 📄"
+            
+            btn_text = f"❌ حذف {f_type} رقم {idx + 1}"
+            buttons.append([InlineKeyboardButton(btn_text, callback_data=f"del:{key}:{idx}")])
         
         reply_markup = InlineKeyboardMarkup(buttons)
-        await update.message.reply_text(f"اختر الملف الذي تريد حذفه من `{key}`:", reply_markup=reply_markup, parse_mode="Markdown")
+        await update.message.reply_text(f"اختر العناصر التي ترغب بحذفها تحديداً من `{key}`:", reply_markup=reply_markup, parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ لم يتم العثور على محتويات بهذا الاسم.")
 
@@ -154,10 +157,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if data.startswith("del_"):
-        parts = data.split("_")
-        idx = int(parts[-1])
-        key = "_".join(parts[1:-1])
+    if data.startswith("del:"):
+        parts = data.split(":")
+        key = parts[1]
+        idx = int(parts[2])
 
         db = load_data()
         if key in db and 0 <= idx < len(db[key]):
@@ -165,9 +168,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not db[key]:
                 del db[key]
             save_data(db)
-            await query.edit_message_text(f"✅ تم حذف الملف المحدد من `{key}` بنجاح!", parse_mode="Markdown")
+            await query.edit_message_text(f"✅ تم حذف الملف المحدد رقم ({idx + 1}) من `{key}` بنجاح!", parse_mode="Markdown")
         else:
-            await query.edit_message_text("❌ هذا الملف لم يعد موجوداً.")
+            await query.edit_message_text("❌ هذا الملف غير موجود أو تم حذفه سابقاً.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = update.message.text
