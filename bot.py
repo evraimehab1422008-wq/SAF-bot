@@ -7,69 +7,56 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# الإعدادات
+# الإعدادات والتوكين الجديد
 # -------------------------------------------------------------
 BOT_TOKEN_DEFAULT = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
 ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
-# مسار حفظ البيانات الثابت
-DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
-DATA_FILE = os.path.join(DATA_DIR, "bot_data.json")
-
-def get_initial_structure():
-    return {
-        "photo_id": None,
-        "caption": "مرحباً بك! اختر المستوى:",
-        "buttons": {
-            "Level 1": {
-                "photo_id": None,
-                "caption": "مرحباً بك في Level 1",
-                "buttons": {
-                    "Anatomy": {
-                        "photo_id": None,
-                        "caption": "قسم التشريح Anatomy",
-                        "buttons": {}
-                    },
-                    "Physiology": {
-                        "photo_id": None,
-                        "caption": "قسم الفيزيولوجي Physiology",
-                        "buttons": {}
-                    }
+# هيكل الأزرار المباشر بالإيموجيات لضمان عدم اختفائها إطلاقاً
+bot_data = {
+    "photo_id": None,
+    "caption": "🎓 مرحباً بك! اختر المستوى الدراسي:",
+    "buttons": {
+        "📚 Level 1": {
+            "photo_id": None,
+            "caption": "📖 مرحباً بك في Level 1، اختر المادة:",
+            "buttons": {
+                "🦴 Anatomy": {
+                    "photo_id": None,
+                    "caption": "🦴 قسم التشريح Anatomy",
+                    "buttons": {}
+                },
+                "⚡ Physiology": {
+                    "photo_id": None,
+                    "caption": "⚡ قسم الفيزيولوجي Physiology",
+                    "buttons": {}
+                },
+                "🔬 Histology": {
+                    "photo_id": None,
+                    "caption": "🔬 قسم الأنسجة Histology",
+                    "buttons": {}
                 }
-            },
-            "Level 2": {
-                "photo_id": None,
-                "caption": "مرحباً بك في Level 2",
-                "buttons": {}
+            }
+        },
+        "📘 Level 2": {
+            "photo_id": None,
+            "caption": "📖 مرحباً بك في Level 2، اختر المادة:",
+            "buttons": {
+                "🧪 Biochemistry": {
+                    "photo_id": None,
+                    "caption": "🧪 قسم الكيمياء الحيوية Biochemistry",
+                    "buttons": {}
+                },
+                "💊 Pharmacology": {
+                    "photo_id": None,
+                    "caption": "💊 قسم الأدوية Pharmacology",
+                    "buttons": {}
+                }
             }
         }
     }
-
-def load_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if data and "buttons" in data and len(data["buttons"]) > 0:
-                    return data
-        except Exception as e:
-            print(f"Error loading data: {e}")
-    
-    # إذا لم يجد أزراراً أو كان الملف مفقوداً يعيد الهيكل الأساسي للأزرار
-    initial = get_initial_structure()
-    save_data(initial)
-    return initial
-
-def save_data(data):
-    try:
-        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"Error saving data: {e}")
-
-bot_data = load_data()
+}
 
 def get_node_by_path(path):
     curr = bot_data
@@ -93,6 +80,7 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     keys = list(buttons.keys())
     
+    # تنظيم الأزرار صفين صفين
     for i in range(0, len(keys), 2):
         keyboard.append([KeyboardButton(k) for k in keys[i:i+2]])
 
@@ -147,7 +135,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
-        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 3`", parse_mode="Markdown")
+        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add 📁 Level 3`", parse_mode="Markdown")
         return
 
     path = context.user_data.get('path', [])
@@ -157,7 +145,6 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if "buttons" not in node:
             node["buttons"] = {}
         node["buttons"][new_btn_name] = {"photo_id": None, "caption": f"قسم {new_btn_name}", "buttons": {}}
-        save_data(bot_data)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
@@ -172,10 +159,9 @@ async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     if node is not None:
         photo_id = update.message.photo[-1].file_id
         node["photo_id"] = photo_id
-        save_data(bot_data)
         
         current_location = path[-1] if path else "صفحة البداية (Start)"
-        await update.message.reply_text(f"✅ تم حفظ الصورة بنجاح وربطها بـ: `{current_location}`", parse_mode="Markdown")
+        await update.message.reply_text(f"📸 تم حفظ الصورة بنجاح وربطها بـ: `{current_location}`", parse_mode="Markdown")
         await show_current_menu(update, context)
 
 if __name__ == '__main__':
