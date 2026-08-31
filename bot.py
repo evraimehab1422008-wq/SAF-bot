@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -15,11 +16,50 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# Bot Configuration
 TOKEN = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
 ALLOWED_USER_ID = 1422008432
 
-# Curriculum database directly based on the Physical Therapy Academic Regulations
+# Database Setup for permanent storage
+def init_db():
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_path TEXT NOT NULL,
+            file_id TEXT NOT NULL,
+            file_type TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def db_add_file(section_path, file_id, file_type):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO files (section_path, file_id, file_type) VALUES (?, ?, ?)',
+                   (section_path, file_id, file_type))
+    conn.commit()
+    conn.close()
+
+def db_get_files(section_path):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, file_id, file_type FROM files WHERE section_path = ?', (section_path,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"db_id": row[0], "file_id": row[1], "type": row[2]} for row in rows]
+
+def db_delete_file(db_id):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM files WHERE id = ?', (db_id,))
+    conn.commit()
+    conn.close()
+
+# Curriculum Database
 CURRICULUM = {
     "L1": {
         "title": "Level 1 🥇",
@@ -178,7 +218,6 @@ CURRICULUM = {
     }
 }
 
-# START COMMAND
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ALLOWED_USER_ID:
@@ -195,7 +234,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.callback_query.edit_message_text(welcome_text, reply_markup=reply_markup)
 
-# SHOW LEVELS
 async def show_levels(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -207,7 +245,6 @@ async def show_levels(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text("Select Academic Level:", reply_markup=reply_markup)
 
-# SHOW SEMESTERS
 async def show_semesters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -223,7 +260,6 @@ async def show_semesters(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"Selected: {level_data['title']}\nSelect Semester:", reply_markup=reply_markup)
 
-# SHOW SUBJECTS
 async def show_subjects(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -240,7 +276,6 @@ async def show_subjects(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"Selected: {sem_data['title']}\nSelect Subject:", reply_markup=reply_markup)
 
-# SHOW THEORETICAL / PRACTICAL BUTTONS
 async def show_type_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -259,7 +294,6 @@ async def show_type_options(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text(f"Subject: {subj_data['name']}\nSelect Section:", reply_markup=reply_markup)
 
-# VIEW SECTION CONTENT & MANAGE FILES
 async def view_section(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -273,7 +307,7 @@ async def view_section(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subj_name = CURRICULUM[level_key]["semesters"][sem_key]["subjects"][subj_key]["name"]
     sec_title = "Theoretical 📖" if sec_type == "THEORY" else "Practical 🔬"
     
-    items = context.bot_data.get(section_path, [])
+    items = db_get_files(section_path)
     
     msg = f"📍 *{subj_name}* - *{sec_title}*\n\n"
     if items:
@@ -297,7 +331,6 @@ async def view_section(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif item["type"] == "photo":
             await query.message.reply_photo(photo=item["file_id"], caption=f"Image #{idx+1}")
 
-# UPLOAD MEDIA HANDLER
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ALLOWED_USER_ID:
         return
@@ -306,9 +339,6 @@ async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not current_path:
         await update.message.reply_text("⚠️ Please navigate to a specific section (Theoretical or Practical) first before sending files.")
         return
-
-    if current_path not in context.bot_data:
-        context.bot_data[current_path] = []
 
     if update.message.document:
         file_id = update.message.document.file_id
@@ -319,18 +349,17 @@ async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
 
-    context.bot_data[current_path].append({"file_id": file_id, "type": file_type})
+    db_add_file(current_path, file_id, file_type)
     
     keyboard = [[InlineKeyboardButton("View Section Content 📂", callback_data=f"sec_{current_path}")]]
-    await update.message.reply_text("✅ File successfully added to this section!", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("✅ File successfully saved permanently!", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# SHOW DELETE SELECTION MENU
 async def show_delete_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     section_path = query.data.replace("delmenu_", "")
-    items = context.bot_data.get(section_path, [])
+    items = db_get_files(section_path)
     
     if not items:
         await query.edit_message_text("No files to delete!")
@@ -339,33 +368,29 @@ async def show_delete_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = []
     for idx, item in enumerate(items):
         icon = "📄 PDF" if item["type"] == "document" else "🖼 Photo"
-        keyboard.append([InlineKeyboardButton(f"Delete Item #{idx+1} ({icon})", callback_data=f"rem_{section_path}_{idx}")])
+        keyboard.append([InlineKeyboardButton(f"Delete Item #{idx+1} ({icon})", callback_data=f"rem_{item['db_id']}_{section_path}")])
     
     keyboard.append([InlineKeyboardButton("⬅️ Back to Section", callback_data=f"sec_{section_path}")])
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text("Select specific item to delete:", reply_markup=reply_markup)
 
-# EXECUTE DELETION
 async def execute_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     parts = query.data.split("_")
-    idx = int(parts[-1])
-    section_path = "_".join(parts[1:-1])
+    db_id = int(parts[1])
+    section_path = "_".join(parts[2:])
     
-    items = context.bot_data.get(section_path, [])
-    if 0 <= idx < len(items):
-        items.pop(idx)
-        context.bot_data[section_path] = items
-        await query.answer("✅ Selected item deleted successfully!", show_alert=True)
+    db_delete_file(db_id)
+    await query.answer("✅ Selected item deleted successfully!", show_alert=True)
     
     keyboard = [[InlineKeyboardButton("⬅️ Return to Section", callback_data=f"sec_{section_path}")]]
     await query.edit_message_text("Item has been deleted successfully.", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# MAIN BOT RUNNER
-def main():
+if __name__ == '__main__':
+    print("🤖 Starting Bot...")
     application = ApplicationBuilder().token(TOKEN).build()
     
     application.add_handler(CommandHandler("start", start))
@@ -379,7 +404,5 @@ def main():
     
     application.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, handle_upload))
     
-    application.run_polling()
-
-if __name__ == '__main__':
-    main()
+    print("✅ Bot is online!")
+    application.run_polling(drop_pending_updates=True)
