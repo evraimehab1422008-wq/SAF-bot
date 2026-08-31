@@ -9,7 +9,7 @@ from telegram.ext import (
 # -------------------------------------------------------------
 # الإعدادات الخاصة بك
 # -------------------------------------------------------------
-BOT_TOKEN = "7649581977:AAEUw7v4yK88m1-uVn6w7-O4M9n4y12345"
+BOT_TOKEN_DEFAULT = "7649581977:AAEUw7v4yK88m1-uVn6w7-O4M9n4y12345"
 ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
@@ -60,7 +60,7 @@ def save_data(data):
 
 bot_data = load_data()
 
-# الحصول على القسم الحالي بناءً على مكانك
+# الحصول على العقدة/القسم الحالي بناءً على المسار
 def get_node_by_path(path):
     curr = bot_data
     for step in path:
@@ -94,10 +94,12 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = node.get("caption") or (path[-1] if path else "اختر من القائمة:")
     photo_id = node.get("photo_id")
 
+    # إرسال الصورة إذا كانت مضافة للقسم الحالي
     if photo_id:
         try:
             await update.message.reply_photo(photo=photo_id, caption=caption, reply_markup=reply_markup)
         except Exception:
+            # في حالة وجود خطأ في الـ file_id يرسل نص فقط
             await update.message.reply_text(text=caption, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text=caption, reply_markup=reply_markup)
@@ -130,7 +132,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['path'] = path
         await show_current_menu(update, context)
 
-# أمر إضافة زر جديد /add
+# إضافة زر جديد داخل القسم الحالي
 async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
@@ -152,7 +154,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
-# استقبال الصورة بدون الحاجة لكتابة اسم في الكابشن
+# حفظ الصورة مباشرة للقسم الواقف فيه حالياً
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id != ADMIN_ID:
@@ -171,7 +173,7 @@ async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         await show_current_menu(update, context)
 
 if __name__ == '__main__':
-    TOKEN = os.getenv("BOT_TOKEN", BOT_TOKEN)
+    TOKEN = os.getenv("BOT_TOKEN") or BOT_TOKEN_DEFAULT
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start_command))
