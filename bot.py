@@ -7,10 +7,9 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# الإعدادات الخاصة بك
+# الإعدادات
 # -------------------------------------------------------------
 BOT_TOKEN_DEFAULT = "7649581977:AAEUw7v4yK88m1-uVn6w7-O4M9n4y12345"
-ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
 DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
@@ -60,7 +59,6 @@ def save_data(data):
 
 bot_data = load_data()
 
-# الحصول على العقدة/القسم الحالي بناءً على المسار
 def get_node_by_path(path):
     curr = bot_data
     for step in path:
@@ -94,12 +92,10 @@ async def show_current_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = node.get("caption") or (path[-1] if path else "اختر من القائمة:")
     photo_id = node.get("photo_id")
 
-    # إرسال الصورة إذا كانت مضافة للقسم الحالي
     if photo_id:
         try:
             await update.message.reply_photo(photo=photo_id, caption=caption, reply_markup=reply_markup)
         except Exception:
-            # في حالة وجود خطأ في الـ file_id يرسل نص فقط
             await update.message.reply_text(text=caption, reply_markup=reply_markup)
     else:
         await update.message.reply_text(text=caption, reply_markup=reply_markup)
@@ -132,12 +128,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['path'] = path
         await show_current_menu(update, context)
 
-# إضافة زر جديد داخل القسم الحالي
 async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id != ADMIN_ID:
-        return
-
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
         await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 3`", parse_mode="Markdown")
@@ -154,12 +145,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
-# حفظ الصورة مباشرة للقسم الواقف فيه حالياً
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    if user_id != ADMIN_ID:
-        return
-
     path = context.user_data.get('path', [])
     node = get_node_by_path(path)
 
