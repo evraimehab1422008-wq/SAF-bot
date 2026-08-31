@@ -87,15 +87,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    
     if user_id not in ADMIN_IDS:
+        await update.message.reply_text(f"❌ حسابك غير مصرح له بالإيجاد.\nID حسابك هو: `{user_id}`\nيجب إضافته في القائمة ADMIN_IDS داخل الكود.", parse_mode="Markdown")
         return
 
     caption = update.message.caption
     if not caption:
         await update.message.reply_text(
-            "❌ يرجى كتابة اسم المادة والنوع في الـ Caption للشرح/الصورة/الملف.\n"
-            "مثال للـ PDF: Human Anatomy I theoretical\n"
-            "مثال للصورة: Human Anatomy I practical"
+            "❌ يرجى كتابة اسم المادة والنوع في التعليق (Caption) المرفق مع الصورة/الملف قبل الإرسال.\n\n"
+            "مثال للـ PDF النظري:\n`Human Anatomy I theoretical`\n\n"
+            "مثال للصورة أو الملف العملي:\n`Human Anatomy I practical`",
+            parse_mode="Markdown"
         )
         return
 
@@ -126,6 +129,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in ADMIN_IDS:
+        await update.message.reply_text(f"❌ حسابك غير مصرح له بالحذف. ID: `{user_id}`", parse_mode="Markdown")
         return
 
     if not context.args:
