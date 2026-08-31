@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
+TOKEN = "8791458947:AAFCsqj64LQ5q2MrjvG0u5kMA6AXbT5pKFI"
 ALLOWED_USER_ID = 1422008432
 
 # Database Setup for permanent storage
