@@ -10,16 +10,13 @@ from telegram.ext import (
     filters,
 )
 
-# Logging configuration
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
 TOKEN = "8791458947:AAFCsqj64LQ5q2MrjvG0u5kMA6AXbT5pKFI"
-ALLOWED_USER_ID = 6448008082
 
-# Database Setup for permanent storage
 def init_db():
     conn = sqlite3.connect('bot_data.db')
     cursor = conn.cursor()
@@ -59,7 +56,6 @@ def db_delete_file(db_id):
     conn.commit()
     conn.close()
 
-# Curriculum Database
 CURRICULUM = {
     "L1": {
         "title": "Level 1 🥇",
@@ -219,11 +215,6 @@ CURRICULUM = {
 }
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id != ALLOWED_USER_ID:
-        await update.message.reply_text("⛔ Access Denied: Unauthorized User.")
-        return
-
     context.user_data['current_path'] = None
     keyboard = [[InlineKeyboardButton("Start 🚀", callback_data="show_levels")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -332,9 +323,6 @@ async def view_section(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_photo(photo=item["file_id"], caption=f"Image #{idx+1}")
 
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ALLOWED_USER_ID:
-        return
-
     current_path = context.user_data.get('current_path')
     if not current_path:
         await update.message.reply_text("⚠️ Please navigate to a specific section (Theoretical or Practical) first before sending files.")
