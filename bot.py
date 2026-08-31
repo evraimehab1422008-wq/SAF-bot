@@ -7,30 +7,63 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# الإعدادات وتحديث التوكين الجديد
+# الإعدادات
 # -------------------------------------------------------------
 BOT_TOKEN_DEFAULT = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
 ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
+# مسار حفظ البيانات الثابت
 DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
 DATA_FILE = os.path.join(DATA_DIR, "bot_data.json")
+
+def get_initial_structure():
+    return {
+        "photo_id": None,
+        "caption": "مرحباً بك! اختر المستوى:",
+        "buttons": {
+            "Level 1": {
+                "photo_id": None,
+                "caption": "مرحباً بك في Level 1",
+                "buttons": {
+                    "Anatomy": {
+                        "photo_id": None,
+                        "caption": "قسم التشريح Anatomy",
+                        "buttons": {}
+                    },
+                    "Physiology": {
+                        "photo_id": None,
+                        "caption": "قسم الفيزيولوجي Physiology",
+                        "buttons": {}
+                    }
+                }
+            },
+            "Level 2": {
+                "photo_id": None,
+                "caption": "مرحباً بك في Level 2",
+                "buttons": {}
+            }
+        }
+    }
 
 def load_data():
     if os.path.exists(DATA_FILE):
         try:
             with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {
-        "photo_id": None,
-        "caption": "مرحباً بك! اختر القسم المطلوب:",
-        "buttons": {}
-    }
+                data = json.load(f)
+                if data and "buttons" in data and len(data["buttons"]) > 0:
+                    return data
+        except Exception as e:
+            print(f"Error loading data: {e}")
+    
+    # إذا لم يجد أزراراً أو كان الملف مفقوداً يعيد الهيكل الأساسي للأزرار
+    initial = get_initial_structure()
+    save_data(initial)
+    return initial
 
 def save_data(data):
     try:
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
@@ -114,7 +147,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
-        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 1`", parse_mode="Markdown")
+        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 3`", parse_mode="Markdown")
         return
 
     path = context.user_data.get('path', [])
@@ -128,9 +161,6 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
-# -------------------------------------------------------------
-# الأمر الجديد: حفظ الصورة فوراً داخل القسم الحالي الذي تقف عنده
-# -------------------------------------------------------------
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
