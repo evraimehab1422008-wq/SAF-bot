@@ -3,8 +3,8 @@ import json
 import logging
 import time
 import re
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 TOKEN = "8791458947:AAG-CJRYAPiixXNretthMePindhMOhBdfIo"
 ADMIN_IDS = [6448008082]
@@ -89,15 +89,14 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text(f"❌ حسابك غير مصرح له بالإيجاد.\nID حسابك هو: `{user_id}`\nيجب إضافته في القائمة ADMIN_IDS داخل الكود.", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ حسابك غير مصرح له بالإيجاد.\nID حسابك هو: `{user_id}`", parse_mode="Markdown")
         return
 
     caption = update.message.caption
     if not caption:
         await update.message.reply_text(
             "❌ يرجى كتابة اسم المادة والنوع في التعليق (Caption) المرفق مع الصورة/الملف قبل الإرسال.\n\n"
-            "مثال للـ PDF النظري:\n`Human Anatomy I theoretical`\n\n"
-            "مثال للصورة أو الملف العملي:\n`Human Anatomy I practical`",
+            "مثال:\n`Histology theoretical`\nأو\n`Histology practical`",
             parse_mode="Markdown"
         )
         return
@@ -129,22 +128,46 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     if user_id not in ADMIN_IDS:
-        await update.message.reply_text(f"❌ حسابك غير مصرح له بالحذف. ID: `{user_id}`", parse_mode="Markdown")
         return
 
     if not context.args:
-        await update.message.reply_text("❌ يرجى كتابة اسم الخانة بعد الأمر.\nمثال:\n`/delete Human Anatomy I practical`", parse_mode="Markdown")
+        await update.message.reply_text("❌ يرجى كتابة اسم الخانة بعد الأمر.\nمثال:\n`/delete Histology theoretical`", parse_mode="Markdown")
         return
 
     key = clean_text(" ".join(context.args)).lower()
     db = load_data()
 
-    if key in db:
-        del db[key]
-        save_data(db)
-        await update.message.reply_text(f"🗑️ تم حذف المحتويات الخاصة بـ: `{key}` بنجاح!", parse_mode="Markdown")
+    if key in db and db[key]:
+        buttons = []
+        for idx, item in enumerate(db[key]):
+            item_type = item.get("type", "document") if isinstance(item, dict) else "document"
+            btn_text = f"❌ حذف الملف رقم {idx + 1} ({item_type})"
+            buttons.append([InlineKeyboardButton(btn_text, callback_data=f"del_{key}_{idx}")])
+        
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await update.message.reply_text(f"اختر الملف الذي تريد حذفه من `{key}`:", reply_markup=reply_markup, parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ لم يتم العثور على محتويات بهذا الاسم.")
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    if data.startswith("del_"):
+        parts = data.split("_")
+        idx = int(parts[-1])
+        key = "_".join(parts[1:-1])
+
+        db = load_data()
+        if key in db and 0 <= idx < len(db[key]):
+            del db[key][idx]
+            if not db[key]:
+                del db[key]
+            save_data(db)
+            await query.edit_message_text(f"✅ تم حذف الملف المحدد من `{key}` بنجاح!", parse_mode="Markdown")
+        else:
+            await query.edit_message_text("❌ هذا الملف لم يعد موجوداً.")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = update.message.text
@@ -257,6 +280,7 @@ def run_bot():
             
             app.add_handler(CommandHandler("start", start))
             app.add_handler(CommandHandler("delete", delete_material))
+            app.add_handler(CallbackQueryHandler(handle_callback))
             app.add_handler(MessageHandler(filters.PHOTO | filters.ATTACHMENT, handle_media))
             app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
             
