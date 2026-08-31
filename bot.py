@@ -8,20 +8,30 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 TOKEN = "8791458947:AAG-CJRYAPiixXNretthMePindhMOhBdfIo"
 ADMIN_IDS = [6448008082]
-DATA_FILE = "data.json"
+
+# مسار التخزين الثابت على Railway
+DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
+DATA_FILE = os.path.join(DATA_DIR, "data.json")
 
 def clean_text(text):
     return re.sub(r'[^\w\s\(\)\/-]', '', text).strip()
 
 def load_data():
     if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print("Error loading data:", e)
     return {}
 
 def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    try:
+        os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        print("Error saving data:", e)
 
 MAIN_MENU = [
     [KeyboardButton("Level 1 🟢"), KeyboardButton("Level 2 🟡")],
@@ -123,7 +133,7 @@ async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db[key].append({"file_id": file_id, "type": file_type})
     save_data(db)
 
-    await update.message.reply_text(f"✅ تم حفظ الملف بنجاح تحت الخانة:\n`{key}`", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ تم حفظ العنصر بنجاح تحت الخانة:\n`{key}`", parse_mode="Markdown")
 
 async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -140,15 +150,17 @@ async def delete_material(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if key in db and db[key]:
         buttons = []
         for idx, item in enumerate(db[key]):
-            f_type = "file"
+            f_type = "ملف/صورة"
             if isinstance(item, dict):
-                f_type = "صورة 📷" if item.get("type") == "photo" else "ملف 📄"
+                f_type = "📷 صورة" if item.get("type") == "photo" else "📄 ملف"
             
             btn_text = f"❌ حذف {f_type} رقم {idx + 1}"
-            buttons.append([InlineKeyboardButton(btn_text, callback_data=f"del:{key}:{idx}")])
+            # نمرر رقم العنصر بطريقة آمنة جداً
+            buttons.append([InlineKeyboardButton(btn_text, callback_data=f"DEL_{idx}")])
         
+        context.user_data['active_del_key'] = key
         reply_markup = InlineKeyboardMarkup(buttons)
-        await update.message.reply_text(f"اختر العناصر التي ترغب بحذفها تحديداً من `{key}`:", reply_markup=reply_markup, parse_mode="Markdown")
+        await update.message.reply_text(f"اختر الملف المحدد الذي تريد حذفه من `{key}`:", reply_markup=reply_markup, parse_mode="Markdown")
     else:
         await update.message.reply_text("❌ لم يتم العثور على محتويات بهذا الاسم.")
 
@@ -157,10 +169,13 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     data = query.data
-    if data.startswith("del:"):
-        parts = data.split(":")
-        key = parts[1]
-        idx = int(parts[2])
+    if data.startswith("DEL_"):
+        idx = int(data.split("_")[1])
+        key = context.user_data.get('active_del_key')
+
+        if not key:
+            await query.edit_message_text("❌ انتهت الجلسة، يرجى كتابة أمر الحذف مجدداً.")
+            return
 
         db = load_data()
         if key in db and 0 <= idx < len(db[key]):
@@ -168,7 +183,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not db[key]:
                 del db[key]
             save_data(db)
-            await query.edit_message_text(f"✅ تم حذف الملف المحدد رقم ({idx + 1}) من `{key}` بنجاح!", parse_mode="Markdown")
+            await query.edit_message_text(f"✅ تم حذف العنصر رقم ({idx + 1}) من `{key}` بنجاح!", parse_mode="Markdown")
         else:
             await query.edit_message_text("❌ هذا الملف غير موجود أو تم حذفه سابقاً.")
 
