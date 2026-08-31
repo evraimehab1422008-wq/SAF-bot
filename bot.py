@@ -7,9 +7,10 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# ضع التوكين الجديد كلياً هنا
+# التوكين الجديد والرقم التعريفي للأدمن
 # -------------------------------------------------------------
 BOT_TOKEN_DEFAULT = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
+ADMIN_ID = 1422008432
 # -------------------------------------------------------------
 
 DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
@@ -24,30 +25,8 @@ def load_data():
             pass
     return {
         "photo_id": None,
-        "caption": "مرحباً بك! اختر المستوى:",
-        "buttons": {
-            "Level 1": {
-                "photo_id": None,
-                "caption": "مرحباً بك في Level 1",
-                "buttons": {
-                    "Anatomy": {
-                        "photo_id": None,
-                        "caption": "قسم التشريح Anatomy",
-                        "buttons": {}
-                    },
-                    "Physiology": {
-                        "photo_id": None,
-                        "caption": "قسم الفيزيولوجي Physiology",
-                        "buttons": {}
-                    }
-                }
-            },
-            "Level 2": {
-                "photo_id": None,
-                "caption": "مرحباً بك في Level 2",
-                "buttons": {}
-            }
-        }
+        "caption": "مرحباً بك! اختر القسم المطلوب:",
+        "buttons": {}
     }
 
 def save_data(data):
@@ -129,9 +108,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_current_menu(update, context)
 
 async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return
+
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
-        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 3`", parse_mode="Markdown")
+        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add اسم القسم`", parse_mode="Markdown")
         return
 
     path = context.user_data.get('path', [])
@@ -146,6 +129,10 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await show_current_menu(update, context)
 
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id != ADMIN_ID:
+        return
+
     path = context.user_data.get('path', [])
     node = get_node_by_path(path)
 
