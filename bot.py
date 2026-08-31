@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# الإعدادات
+# الإعدادات وتحديث التوكين الجديد
 # -------------------------------------------------------------
 BOT_TOKEN_DEFAULT = "8791458947:AAGkFPigOOvCJNcpfoKGOG54wBPdc-thtJY"
 ADMIN_ID = 1422008432
@@ -114,7 +114,7 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     new_btn_name = " ".join(context.args).strip()
     if not new_btn_name:
-        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add اسم القسم`", parse_mode="Markdown")
+        await update.message.reply_text("❌ اكتب اسم الزر بعد الأمر، مثال:\n`/add Level 1`", parse_mode="Markdown")
         return
 
     path = context.user_data.get('path', [])
@@ -128,6 +128,9 @@ async def add_button_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(f"✅ تم إضافة الزر `{new_btn_name}` بنجاح!", parse_mode="Markdown")
         await show_current_menu(update, context)
 
+# -------------------------------------------------------------
+# الأمر الجديد: حفظ الصورة فوراً داخل القسم الحالي الذي تقف عنده
+# -------------------------------------------------------------
 async def handle_photo_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
