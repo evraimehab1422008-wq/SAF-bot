@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8791458947:AAHj6eWae2zCAVY3zZmBOOToyel8b3LMnY0"
+TOKEN = "8791458947:AAF3EkvkKq0t4QDsld8CXBpHCplTHDi7zDg"
 
 # Database Setup
 def init_db():
