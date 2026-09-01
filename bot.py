@@ -1,3 +1,82 @@
+import logging
+import sqlite3
+from telegram import ReplyKeyboardMarkup, KeyboardButton, Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+TOKEN = "8791458947:AAHY04z9gyBqqaH-g7hIANlR54eroSZ9osU"
+
+# 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا (يمكنك إضافة أكثر من رقم بينها فاصلة)
+ADMIN_IDS = [1422008432]  # استبدل هذا الرقم بـ ID الخاص بك وبأي أدمن آخر
+
+# Database Setup
+def init_db():
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_path TEXT NOT NULL,
+            file_id TEXT NOT NULL,
+            file_type TEXT NOT NULL
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def db_add_file(section_path, file_id, file_type):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO files (section_path, file_id, file_type) VALUES (?, ?, ?)',
+                   (section_path, file_id, file_type))
+    conn.commit()
+    conn.close()
+
+def db_get_files(section_path):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, file_id, file_type FROM files WHERE section_path = ?', (section_path,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"db_id": row[0], "file_id": row[1], "type": row[2]} for row in rows]
+
+def db_delete_file(db_id):
+    conn = sqlite3.connect('bot_data.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM files WHERE id = ?', (db_id,))
+    conn.commit()
+    conn.close()
+
+def is_admin(user_id: int) -> bool:
+    """التحقق مما إذا كان المستخدم أدمن"""
+    return user_id in ADMIN_IDS
+
+# Physical Therapy Curriculum Data
+CURRICULUM = {
+    "Level 1 🥇": {
+        "Semester 1 📚": {
+            "ANAT_111": {"name": "Human Anatomy I 🦴", "lab": True},
+            "BIOC_111": {"name": "Biochemistry I 🧪", "lab": False},
+            "HIST_111": {"name": "Histology 🔬", "lab": True},
+            "HPHY_111": {"name": "Human Physiology I 🫀", "lab": True},
+        },
+        "Semester 2 📚": {
+            "ANAT_112": {"name": "Human Anatomy II 🦴", "lab": True},
+            "BIOC_112": {"name": "Biochemistry II 🧪", "lab": False},
+            "HPHY_112": {"name": "Human Physiology II 🫀", "lab": True},
+            "BIOM_112": {"name": "Kinesiology I 🦵", "lab": True},
             "BIOP_112": {"name": "Biophysics II ⚡", "lab": True},
         }
     },
@@ -91,7 +170,9 @@
 }
 
 async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, path_title: str, path_id: str, keyboard_options: list):
-    """عرض المحتويات وزر العودة"""
+    user_id = update.effective_user.id
+    user_is_admin = is_admin(user_id)
+    
     context.user_data['current_path'] = path_id
     items = db_get_files(path_id)
     
@@ -101,7 +182,9 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
         nav_buttons.append(KeyboardButton("🏠 Main Menu"))
     
     final_keyboard = keyboard_options + ([nav_buttons] if nav_buttons else [])
-    if items and path_id != "ROOT":
+    
+    # يظهر زر الحذف للأدمن فقط إذا كانت هناك ملفات
+    if items and path_id != "ROOT" and user_is_admin:
         final_keyboard.insert(0, [KeyboardButton("🗑 Delete Content")])
         
     reply_markup = ReplyKeyboardMarkup(final_keyboard, resize_keyboard=True)
@@ -111,7 +194,9 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
         msg += f"📦 Available Files/Images: {len(items)}\n"
     else:
         msg += "📂 No extra content uploaded here yet.\n"
-    msg += "👇 *You can send any PDF or Image right now to save it in this section!*"
+    
+    if user_is_admin:
+        msg += "👇 *[Admin Mode]* You can send any PDF or Image right now to save it in this section!"
 
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
@@ -170,6 +255,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    user_id = update.effective_user.id
     history = context.user_data.get('step_history', [])
 
     if text == "🏠 Main Menu":
@@ -233,8 +319,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await display_section(update, context, f"{subj_name} ({text})", section_path, [])
         return
 
-    # 5. Delete Menu Action
+    # 5. Delete Menu Action (للأدمن فقط)
     if text == "🗑 Delete Content":
+        if not is_admin(user_id):
+            await update.message.reply_text("🚫 Only admins can delete content.")
+            return
+            
         current_path = context.user_data.get('current_path', 'ROOT')
         items = db_get_files(current_path)
         if not items:
@@ -250,8 +340,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Select an item to delete:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    # 6. Item Deletion Trigger
+    # 6. Item Deletion Trigger (للأدمن فقط)
     if text.startswith("❌ Delete Item #"):
+        if not is_admin(user_id):
+            await update.message.reply_text("🚫 Only admins can delete content.")
+            return
+            
         try:
             db_id = int(text.split("#")[1].split()[0])
             db_delete_file(db_id)
@@ -266,6 +360,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # حظر الحفظ إذا لم يكن المستخدم أدمن
+    if not is_admin(user_id):
+        await update.message.reply_text("🚫 Only admins can upload photos or files to the bot.")
+        return
+
     current_path = context.user_data.get('current_path', 'ROOT')
 
     if update.message.document:
