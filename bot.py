@@ -14,7 +14,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8791458947:AAF3EkvkKq0t4QDsld8CXBpHCplTHDi7zDg"
+TOKEN = "8791458947:AAGKOxGyHt9bTkI8rjckKYTB1aJywbUO9bU"
 # 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا
 ADMIN_IDS = [6448008082]
 
