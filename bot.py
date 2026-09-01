@@ -56,7 +56,7 @@ def db_delete_file(db_id):
     conn.commit()
     conn.close()
 
-# Curriculum Database (Core Physical Therapy Subjects Only)
+# Core Physical Therapy Subjects Only
 CURRICULUM = {
     "Level 1 🥇": {
         "Semester 1 📚": {
