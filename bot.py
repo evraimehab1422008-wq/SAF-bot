@@ -14,10 +14,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8791458947:AAFBrqrp3LKwHmuVKe7U00IRmpLZ4m-QKVo"
-
-# 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا (يمكنك إضافة أكثر من رقم بينها فاصلة)
-ADMIN_IDS = [6448008082]  # استبدل هذا الرقم بـ ID الخاص بك وبأي أدمن آخر
+TOKEN = "8791458947:AAF3EkvkKq0t4QDsld8CXBpHCplTHDi7zDg"
+# 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا
+ADMIN_IDS = [6448008082]
 
 # Database Setup
 def init_db():
@@ -183,7 +182,6 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
     
     final_keyboard = keyboard_options + ([nav_buttons] if nav_buttons else [])
     
-    # يظهر زر الحذف للأدمن فقط إذا كانت هناك ملفات
     if items and path_id != "ROOT" and user_is_admin:
         final_keyboard.insert(0, [KeyboardButton("🗑 Delete Content")])
         
@@ -200,11 +198,14 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
 
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
+    # عرض الملفات مع إخفاء الكابشن للمستخدمين العاديين وإظهاره للأدمن فقط
     for idx, item in enumerate(items):
+        file_caption = f"File #{idx+1} [ID: {item['db_id']}]" if user_is_admin else None
+        
         if item["type"] == "document":
-            await update.message.reply_document(document=item["file_id"], caption=f"File #{idx+1}")
+            await update.message.reply_document(document=item["file_id"], caption=file_caption)
         elif item["type"] == "photo":
-            await update.message.reply_photo(photo=item["file_id"], caption=f"Image #{idx+1}")
+            await update.message.reply_photo(photo=item["file_id"], caption=file_caption)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -362,7 +363,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
-    # حظر الحفظ إذا لم يكن المستخدم أدمن
     if not is_admin(user_id):
         await update.message.reply_text("🚫 Only admins can upload photos or files to the bot.")
         return
