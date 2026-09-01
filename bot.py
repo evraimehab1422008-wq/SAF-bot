@@ -56,7 +56,7 @@ def db_delete_file(db_id):
     conn.commit()
     conn.close()
 
-# Core Physical Therapy Subjects Only (تم إزالة كل المواد العامة)
+# Physical Therapy Curriculum Data
 CURRICULUM = {
     "Level 1 🥇": {
         "Semester 1 📚": {
@@ -162,58 +162,137 @@ CURRICULUM = {
     }
 }
 
+async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, path_title: str, path_id: str, keyboard_options: list):
+    """دالة عامة لعرض محتويات الموقع الحالي وزر العودة"""
+    context.user_data['current_path'] = path_id
+    
+    items = db_get_files(path_id)
+    
+    nav_buttons = []
+    if path_id != "ROOT":
+        nav_buttons.append(KeyboardButton("🔙 Back"))
+        nav_buttons.append(KeyboardButton("🏠 Main Menu"))
+    
+    final_keyboard = keyboard_options + ([nav_buttons] if nav_buttons else [])
+    if items and path_id != "ROOT":
+        final_keyboard.insert(0, [KeyboardButton("🗑 Delete Content")])
+        
+    reply_markup = ReplyKeyboardMarkup(final_keyboard, resize_keyboard=True)
+    
+    msg = f"📍 *{path_title}*\n\n"
+    if items:
+        msg += f"📦 Available Files/Images: {len(items)}\n"
+    else:
+        msg += "📂 No extra content uploaded here yet.\n"
+    msg += "👇 *You can send any PDF or Image right now to save it in this section!*"
+
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+
+    # عرض الملفات المخزنة في هذا المكان
+    for idx, item in enumerate(items):
+        if item["type"] == "document":
+            await update.message.reply_document(document=item["file_id"], caption=f"File #{idx+1}")
+        elif item["type"] == "photo":
+            await update.message.reply_photo(photo=item["file_id"], caption=f"Image #{idx+1}")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
+    context.user_data['step_history'] = []
     keyboard = [[KeyboardButton(level)] for level in CURRICULUM.keys()]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text("🎓 Welcome to Physical Therapy Hub!\nSelect Academic Level:", reply_markup=reply_markup)
+    await display_section(update, context, "Main Menu - Academic Levels", "ROOT", keyboard)
+
+async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    history = context.user_data.get('step_history', [])
+    if not history:
+        await start(update, context)
+        return
+    
+    # الرجوع للخطوة السابقة
+    prev_step = history.pop()
+    context.user_data['step_history'] = history
+    
+    step_type = prev_step.get('type')
+    if step_type == 'ROOT':
+        await start(update, context)
+    elif step_type == 'LEVEL':
+        level = prev_step['level']
+        context.user_data['level'] = level
+        keyboard = [[KeyboardButton(sem)] for sem in CURRICULUM[level].keys()]
+        await display_section(update, context, f"Level: {level}", f"LEVEL_{level}", keyboard)
+    elif step_type == 'SEMESTER':
+        level = prev_step['level']
+        sem = prev_step['semester']
+        context.user_data['level'] = level
+        context.user_data['semester'] = sem
+        subjects = CURRICULUM[level][sem]
+        keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in subjects.items()]
+        await display_section(update, context, f"{level} > {sem}", f"SEM_{sem}", keyboard)
+    elif step_type == 'SUBJECT':
+        level = prev_step['level']
+        sem = prev_step['semester']
+        subj_code = prev_step['subj_code']
+        subj_name = prev_step['subj_name']
+        context.user_data['level'] = level
+        context.user_data['semester'] = sem
+        context.user_data['subject_code'] = subj_code
+        context.user_data['subject_name'] = subj_name
+        
+        subj_info = CURRICULUM[level][sem][subj_code]
+        keyboard = [[KeyboardButton("Theoretical 📖")]]
+        if subj_info["lab"]:
+            keyboard.append([KeyboardButton("Practical 🔬")])
+        await display_section(update, context, f"Subject: {subj_name}", f"SUBJ_{subj_code}", keyboard)
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    history = context.user_data.get('step_history', [])
 
     if text == "🏠 Main Menu":
         await start(update, context)
         return
 
-    # Level selection
-    if text in CURRICULUM:
-        context.user_data['level'] = text
-        context.user_data['current_path'] = None
-        keyboard = [[KeyboardButton(sem)] for sem in CURRICULUM[text].keys()]
-        keyboard.append([KeyboardButton("🏠 Main Menu")])
-        await update.message.reply_text(f"Selected: {text}\nSelect Semester:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    if text == "🔙 Back":
+        await handle_back(update, context)
         return
 
-    # Semester selection
+    # 1. Level Selection
+    if text in CURRICULUM:
+        history.append({'type': 'ROOT'})
+        context.user_data['step_history'] = history
+        context.user_data['level'] = text
+        keyboard = [[KeyboardButton(sem)] for sem in CURRICULUM[text].keys()]
+        await display_section(update, context, f"Level: {text}", f"LEVEL_{text}", keyboard)
+        return
+
+    # 2. Semester Selection
     level = context.user_data.get('level')
     if level and text in CURRICULUM[level]:
+        history.append({'type': 'LEVEL', 'level': level})
+        context.user_data['step_history'] = history
         context.user_data['semester'] = text
-        context.user_data['current_path'] = None
         subjects = CURRICULUM[level][text]
         keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in subjects.items()]
-        keyboard.append([KeyboardButton("🏠 Main Menu")])
-        await update.message.reply_text(f"Selected: {text}\nSelect Subject:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+        await display_section(update, context, f"{level} > {text}", f"SEM_{text}", keyboard)
         return
 
-    # Subject selection
+    # 3. Subject Selection
     semester = context.user_data.get('semester')
     if level and semester:
         subjects = CURRICULUM[level][semester]
         for subj_code, subj_info in subjects.items():
             if text == subj_info["name"]:
+                history.append({'type': 'SEMESTER', 'level': level, 'semester': semester})
+                context.user_data['step_history'] = history
                 context.user_data['subject_code'] = subj_code
                 context.user_data['subject_name'] = text
-                context.user_data['current_path'] = None
                 
                 keyboard = [[KeyboardButton("Theoretical 📖")]]
                 if subj_info["lab"]:
                     keyboard.append([KeyboardButton("Practical 🔬")])
-                keyboard.append([KeyboardButton("🏠 Main Menu")])
-                
-                await update.message.reply_text(f"Selected Subject: {text}\nSelect Type:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+                await display_section(update, context, f"Subject: {text}", f"SUBJ_{subj_code}", keyboard)
                 return
 
-    # Section selection (Theoretical / Practical)
+    # 4. Section Selection (Theoretical / Practical)
     if text in ["Theoretical 📖", "Practical 🔬"]:
         subj_code = context.user_data.get('subject_code')
         subj_name = context.user_data.get('subject_name')
@@ -221,43 +300,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Please select a subject first.")
             return
 
+        history.append({'type': 'SUBJECT', 'level': level, 'semester': semester, 'subj_code': subj_code, 'subj_name': subj_name})
+        context.user_data['step_history'] = history
+
         sec_type = "THEORY" if "Theoretical" in text else "PRACTICAL"
         section_path = f"{subj_code}_{sec_type}"
-        context.user_data['current_path'] = section_path
-
-        items = db_get_files(section_path)
-        
-        keyboard = [
-            [KeyboardButton("🗑 Delete Content")],
-            [KeyboardButton("🏠 Main Menu")]
-        ]
-        
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        
-        msg = f"📍 *{subj_name}* ({text})\n\n"
-        if items:
-            msg += f"📦 Available Files/Images: {len(items)}\n"
-            msg += "👇 *Send any PDF or Image right now to store it here!*"
-        else:
-            msg += "📂 No content uploaded yet.\n"
-            msg += "👇 *Send any PDF or Image right now to store it here!*"
-
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
-
-        for idx, item in enumerate(items):
-            if item["type"] == "document":
-                await update.message.reply_document(document=item["file_id"], caption=f"File #{idx+1}")
-            elif item["type"] == "photo":
-                await update.message.reply_photo(photo=item["file_id"], caption=f"Image #{idx+1}")
+        await display_section(update, context, f"{subj_name} ({text})", section_path, [])
         return
 
-    # Delete Menu Action
+    # 5. Delete Menu Action
     if text == "🗑 Delete Content":
-        current_path = context.user_data.get('current_path')
-        if not current_path:
-            await update.message.reply_text("⚠️ No active section selected.")
-            return
-            
+        current_path = context.user_data.get('current_path', 'ROOT')
         items = db_get_files(current_path)
         if not items:
             await update.message.reply_text("📂 No items available to delete in this section.")
@@ -267,33 +320,29 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for idx, item in enumerate(items):
             icon = "📄 PDF" if item["type"] == "document" else "🖼 Photo"
             keyboard.append([KeyboardButton(f"❌ Delete Item #{item['db_id']} ({icon})")])
-        keyboard.append([KeyboardButton("🏠 Main Menu")])
+        keyboard.append([KeyboardButton("🔙 Back"), KeyboardButton("🏠 Main Menu")])
         
         await update.message.reply_text("Select an item to delete:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    # Item Deletion Trigger
+    # 6. Item Deletion Trigger
     if text.startswith("❌ Delete Item #"):
         try:
             db_id = int(text.split("#")[1].split()[0])
             db_delete_file(db_id)
             await update.message.reply_text("✅ Item deleted successfully!")
-            
-            current_path = context.user_data.get('current_path')
-            if current_path:
-                items = db_get_files(current_path)
-                keyboard = [[KeyboardButton("🗑 Delete Content")], [KeyboardButton("🏠 Main Menu")]]
-                await update.message.reply_text(f"Remaining items in section: {len(items)}", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            current_path = context.user_data.get('current_path', 'ROOT')
+            items = db_get_files(current_path)
+            keyboard = [[KeyboardButton("🗑 Delete Content")]] if items else []
+            keyboard.append([KeyboardButton("🔙 Back"), KeyboardButton("🏠 Main Menu")])
+            await update.message.reply_text(f"Remaining items here: {len(items)}", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         except Exception:
             await update.message.reply_text("⚠️ Error processing deletion.")
         return
 
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    current_path = context.user_data.get('current_path')
-    
-    if not current_path:
-        await update.message.reply_text("⚠️ Please navigate to a specific section (Theoretical 📖 or Practical 🔬) before sending files!")
-        return
+    # تحديد المكان الحالي (إذا لم يكن ثمة مكان محدد، افتراض أنه الشاشة الرئيسية ROOT)
+    current_path = context.user_data.get('current_path', 'ROOT')
 
     if update.message.document:
         file_id = update.message.document.file_id
@@ -304,8 +353,9 @@ async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
 
+    # حفظ الملف في المسار الحقيقي المنظور الآن
     db_add_file(current_path, file_id, file_type)
-    await update.message.reply_text("✅ File successfully saved to this section!")
+    await update.message.reply_text(f"✅ Saved successfully to current section!")
 
 if __name__ == '__main__':
     print("🤖 Starting Bot...")
