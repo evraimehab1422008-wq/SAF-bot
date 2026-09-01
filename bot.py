@@ -163,9 +163,8 @@ CURRICULUM = {
 }
 
 async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, path_title: str, path_id: str, keyboard_options: list):
-    """دالة عامة لعرض محتويات الموقع الحالي وزر العودة"""
+    """عرض المحتويات وزر العودة"""
     context.user_data['current_path'] = path_id
-    
     items = db_get_files(path_id)
     
     nav_buttons = []
@@ -188,7 +187,6 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
 
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
-    # عرض الملفات المخزنة في هذا المكان
     for idx, item in enumerate(items):
         if item["type"] == "document":
             await update.message.reply_document(document=item["file_id"], caption=f"File #{idx+1}")
@@ -207,7 +205,6 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start(update, context)
         return
     
-    # الرجوع للخطوة السابقة
     prev_step = history.pop()
     context.user_data['step_history'] = history
     
@@ -341,7 +338,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # تحديد المكان الحالي (إذا لم يكن ثمة مكان محدد، افتراض أنه الشاشة الرئيسية ROOT)
     current_path = context.user_data.get('current_path', 'ROOT')
 
     if update.message.document:
@@ -353,9 +349,8 @@ async def handle_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
 
-    # حفظ الملف في المسار الحقيقي المنظور الآن
     db_add_file(current_path, file_id, file_type)
-    await update.message.reply_text(f"✅ Saved successfully to current section!")
+    await update.message.reply_text("✅ Saved successfully to current section!")
 
 if __name__ == '__main__':
     print("🤖 Starting Bot...")
