@@ -10,13 +10,13 @@ from telegram.ext import (
 )
 
 # Token configuration and Admin list
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAEyFe7wPZgv7CTaJV_ElGt0IFHINZ6kXiM")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFcWiXh1taYQTgN9AxzlpYyqHpl-X1_0KY")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
-# Structure with short names & refined Clipboard icons
+# Structure with short names, Clipboard for Evaluation, and cleaned Biophysics name
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
@@ -30,7 +30,7 @@ STRUCTURE = {
             "🧪 Biochemistry II": {"has_lab": False},
             "🫀 Physiology II": {"has_lab": True},
             "🏃 Kinesiology I": {"has_lab": True},
-            "⚡ Biophysics I": {"has_lab": True}
+            "⚡ Biophysics": {"has_lab": True}
         }
     },
     "🟠 Level 2": {
@@ -153,28 +153,26 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
     if control_row:
         keyboard.append(control_row)
 
-    if len(path) > 0 and (path[-1] in ["Theoretical", "Practical"]) and is_admin(update.effective_user.id):
+    path_key = " -> ".join(path) if path else "Root (Home)"
+    files = file_database.get(path_key, [])
+
+    if len(files) > 0 and is_admin(update.effective_user.id):
         keyboard.append([KeyboardButton("Delete File")])
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    path_key = " -> ".join(path)
-    files = file_database.get(path_key, [])
-    
-    is_in_file_section = len(path) > 0 and (path[-1] in ["Theoretical", "Practical"])
     msg_text = text
-    if is_in_file_section:
-        msg_text += f"\n\n📍 **Path:** {path_key}"
-        if files:
-            msg_text += "\n\n📚 **Available Files:**\n"
-            for idx, f in enumerate(files, 1):
-                icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
-                msg_text += f"{idx}. {icon} {f['name']}\n"
-        else:
-            msg_text += "\n\n📂 No files uploaded in this section yet."
+    msg_text += f"\n\n📍 **Current Location:** `{path_key}`"
+    if files:
+        msg_text += "\n\n📚 **Available Files Here:**\n"
+        for idx, f in enumerate(files, 1):
+            icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
+            msg_text += f"{idx}. {icon} {f['name']}\n"
+    else:
+        msg_text += "\n\n📂 No files uploaded in this location yet."
 
-        if is_admin(update.effective_user.id):
-            msg_text += "\n\n⚙️ **[Admin Mode]:** You can upload files here directly by sending PDF, Image, or Audio!"
+    if is_admin(update.effective_user.id):
+        msg_text += "\n\n⚙️ **[Admin Mode]:** Send any PDF, Image, or Audio to save it right here!"
 
     await update.message.reply_text(msg_text, reply_markup=reply_markup, parse_mode="Markdown")
 
@@ -200,7 +198,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "Delete File":
         if not is_admin(user_id):
             return
-        path_key = " -> ".join(path)
+        path_key = " -> ".join(path) if path else "Root (Home)"
         files = file_database.get(path_key, [])
         if not files:
             await update.message.reply_text("⚠️ No files available to delete in this section!")
@@ -220,8 +218,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text.startswith("Delete: ") and context.user_data.get("deleting_mode"):
         file_to_delete = text.replace("Delete: ", "")
-        path_key = " -> ".join(path)
-        file_database[path_key] = [f for f in file_database[path_key] if f["name"] != file_to_delete]
+        path_key = " -> ".join(path) if path else "Root (Home)"
+        file_database[path_key] = [f for f in file_database.get(path_key, []) if f["name"] != file_to_delete]
         context.user_data["deleting_mode"] = False
         await update.message.reply_text(f"🗑️ Successfully deleted: `{file_to_delete}`", parse_mode="Markdown")
         await send_menu(update, context, "Updated list:")
@@ -257,7 +255,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, f"Section: {text}")
         return
 
-    path_key = " -> ".join(path)
+    path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
     for f in files:
         if f["name"] in text:
@@ -275,11 +273,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     path = context.user_data.get("path", [])
-    if not path or path[-1] not in ["Theoretical", "Practical"]:
-        await update.message.reply_text("⚠️ You must navigate inside (Theoretical or Practical) section of a course before uploading files!")
-        return
+    path_key = " -> ".join(path) if path else "Root (Home)"
 
-    path_key = " -> ".join(path)
     if path_key not in file_database:
         file_database[path_key] = []
 
@@ -305,8 +300,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         "type": file_type
     })
 
-    await update.message.reply_text(f"✅ Successfully uploaded `{file_name}`!", parse_mode="Markdown")
-    await send_menu(update, context, "Section updated:")
+    await update.message.reply_text(f"✅ Successfully uploaded `{file_name}` to `{path_key}`!", parse_mode="Markdown")
+    await send_menu(update, context, "Location updated:")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -319,4 +314,4 @@ if __name__ == "__main__":
 
     print("🤖 Bot is running...")
     app.run_polling()
-        
+    
