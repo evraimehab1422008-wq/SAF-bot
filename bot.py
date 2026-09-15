@@ -10,7 +10,7 @@ from telegram.ext import (
 )
 
 # Token configuration and Admin list
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGzj3jyz25HQZwZAJJO5A30QVYEW5ZJaZ8")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFCFzkwofhAY6dERRCjQPGZSRmSozMSDFM")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
