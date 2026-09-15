@@ -10,11 +10,11 @@ from telegram.ext import (
     filters,
 )
 
-# 🔑 جلب التوكن من متغيرات البيئة بـ Railway، وفي حال عدم وجوده يستعين بالتوكن الجديد
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAG1ASMbyCNpxSWm_vtkxsSg8yPLISyoPbQ")
+# 🔑 سحب التوكن من متغيرات البيئة بـ Railway، مع استخدام التوكن الجديد كخيار احتياطي
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGuTzvtNti_90CLWOs3nwB35i2pmdgVFmk")
 ADMIN_IDS = [6448008082, 8791458947]
 
-# 💾 قاعدة البيانات المؤقتة
+# 💾 قاعدة البيانات المؤقتة لتخزين الهيكل والملفات
 data_store = {
     "Level 1": {
         "Semester 1": {"Anatomy": [], "Physiology": []},
@@ -25,7 +25,7 @@ data_store = {
     }
 }
 
-# 🛠️ التحقق من صلاحية الأدمن
+# 🛠️ دالة التحقق من صلاحية الأدمن
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
@@ -34,7 +34,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["path"] = []
     await show_current_level(update, context)
 
-# 📱 عرض المستوى الحالي
+# 📱 عرض القائمة أو القسم الحالي
 async def show_current_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = context.user_data.get("path", [])
     
@@ -44,10 +44,12 @@ async def show_current_level(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     keyboard = []
     
+    # إذا كنا في مجلد يحتوي على أقسام فرعية
     if isinstance(current_node, dict):
         for key in current_node.keys():
             keyboard.append([InlineKeyboardButton(f"📁 {key}", callback_data=f"nav:{key}")])
     
+    # إذا كنا داخل مادة تحتوي على قائمة ملفات
     elif isinstance(current_node, list):
         if not current_node:
             text_content = "📂 هذا القسم فارغ حالياً."
@@ -56,18 +58,20 @@ async def show_current_level(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 icon = "📄" if item["type"] == "document" else ("🖼️" if item["type"] == "photo" else "🎙️")
                 row = [InlineKeyboardButton(f"{icon} {item['name']}", callback_data=f"view:{idx}")]
                 
+                # إضافة زر حذف مخصص للأدمن فقط
                 if is_admin(update.effective_user.id):
                     row.append(InlineKeyboardButton("❌ حذف", callback_data=f"delete:{idx}"))
                 
                 keyboard.append(row)
 
+    # زر الرجوع للخلف
     if path:
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data="nav_back")])
 
     markup = InlineKeyboardMarkup(keyboard)
     
     path_str = " ⬅️ ".join(path) if path else "القائمة الرئيسية 🏠"
-    admin_notice = "\n\n⚙️ **[وضع الأدمن]:** يمكنك إرسال (PDF / صورة / تسجيل) لرفعه هنا!" if is_admin(update.effective_user.id) and isinstance(current_node, list) else ""
+    admin_notice = "\n\n⚙️ **[وضع الأدمن]:** يمكنك إرسال (PDF / صورة / تسجيل) لرفعه في هذا القسم!" if is_admin(update.effective_user.id) and isinstance(current_node, list) else ""
     
     msg_text = f"📍 **الموقع الحالي:** {path_str}{admin_notice}"
 
@@ -76,7 +80,7 @@ async def show_current_level(update: Update, context: ContextTypes.DEFAULT_TYPE)
     else:
         await update.message.reply_text(msg_text, reply_markup=markup, parse_mode="Markdown")
 
-# 🖱️ معالجة الضغط على الأزرار
+# 🖱️ معالجة الأزرار التفاعلية
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -126,7 +130,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer(f"🗑️ تم حذف {deleted_item['name']} بنجاح!", show_alert=True)
         await show_current_level(update, context)
 
-# 📤 معالجة الرفع للأدمن
+# 📤 معالجة الرفع المباشر في المكان الحالي (للأدمن فقط)
 async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -135,7 +139,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     path = context.user_data.get("path", [])
     if not path:
-        await update.message.reply_text("⚠️ يرجى التنقل إلى المادة المطلوبة أولاً!")
+        await update.message.reply_text("⚠️ يرجى التنقل إلى المادة المطلوبة أولاً قبل الرفع!")
         return
 
     current_node = data_store
@@ -143,13 +147,13 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         current_node = current_node[p]
 
     if not isinstance(current_node, list):
-        await update.message.reply_text("⚠️ يرجى الدخول للمادة نفسها لرفع الملفات فيها.")
+        await update.message.reply_text("⚠️ يرجى الدخول داخل المادة نفسها لرفع الملفات (وليس المجلدات الرئيسية).")
         return
 
-    # استخراج بيانات الوسائط
+    # استخراج نوع الوسائط المعالجة
     if update.message.document:
         file_id = update.message.document.file_id
-        file_name = update.message.document.file_name or update.message.caption or "مستند"
+        file_name = update.message.document.file_name or update.message.caption or "مستند PDF"
         file_type = "document"
     elif update.message.photo:
         file_id = update.message.photo[-1].file_id
@@ -172,15 +176,17 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text(f"✅ تم الرفع بنجاح: `{file_name}`", parse_mode="Markdown")
     await show_current_level(update, context)
 
-# 🏁 التشغيل الرئيسي
+# 🏁 نقطة التشغيل الرئيسية
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
     
+    # استقبال الصور، المستندات، والآوديو
     media_filter = filters.Document.ALL | filters.PHOTO | filters.VOICE | filters.AUDIO
     app.add_handler(MessageHandler(media_filter, handle_media_upload))
 
-    print("🤖 البوت يعمل بالتوكن الجديد...")
+    print("🤖 البوت قيد التشغيل...")
     app.run_polling()
+                                        
