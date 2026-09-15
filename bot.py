@@ -10,13 +10,13 @@ from telegram.ext import (
 )
 
 # Token configuration and Admin list
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFTjAFFVavcuum-eHWooxcpJSIACvACaZQ")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGzj3jyz25HQZwZAJJO5A30QVYEW5ZJaZ8")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
-# Structure mapped 100% directly from official PDF curriculum
+# Structure with colored circles & subject emojis preserved
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
@@ -137,6 +137,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
+    # Display items in 2 columns
     if isinstance(current_node, dict):
         keys = list(current_node.keys())
         for i in range(0, len(keys), 2):
@@ -145,6 +146,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
                 row.append(KeyboardButton(keys[i+1]))
             keyboard.append(row)
 
+    # Control buttons in 2 columns
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
