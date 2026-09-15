@@ -141,14 +141,31 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
+    # 1. إضافة أزرار الأقسام أو خيارات Theoretical/Practical
     if isinstance(current_node, dict):
-        keys = list(current_node.keys())
-        for i in range(0, len(keys), 2):
-            row = [KeyboardButton(keys[i])]
-            if i + 1 < len(keys):
-                row.append(KeyboardButton(keys[i+1]))
-            keyboard.append(row)
+        if "has_lab" in current_node:
+            if current_node["has_lab"]:
+                keyboard.append([KeyboardButton("Theoretical"), KeyboardButton("Practical")])
+            else:
+                keyboard.append([KeyboardButton("Theoretical")])
+        else:
+            keys = list(current_node.keys())
+            for i in range(0, len(keys), 2):
+                row = [KeyboardButton(keys[i])]
+                if i + 1 < len(keys):
+                    row.append(KeyboardButton(keys[i+1]))
+                keyboard.append(row)
 
+    # 2. تحويل الملفات المرفوعة لأزرار قابلة للضغط!
+    path_key = " -> ".join(path) if path else "Root (Home)"
+    files = file_database.get(path_key, [])
+
+    if files:
+        for f in files:
+            icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
+            keyboard.append([KeyboardButton(f"{icon} {f['name']}")])
+
+    # 3. أزرار التحكم
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -157,9 +174,6 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
     if control_row:
         keyboard.append(control_row)
 
-    path_key = " -> ".join(path) if path else "Root (Home)"
-    files = file_database.get(path_key, [])
-
     if len(files) > 0 and is_admin(update.effective_user.id):
         keyboard.append([KeyboardButton("Delete File")])
 
@@ -167,10 +181,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
     if files:
-        msg_text += "\n\n📚 **Available Files Here:**\n"
-        for idx, f in enumerate(files, 1):
-            icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
-            msg_text += f"{idx}. {icon} {f['name']}\n"
+        msg_text += "\n\n📚 **Click any file below to download/view it:**"
     else:
         msg_text += "\n\n📂 No files uploaded in this location yet."
 
@@ -231,13 +242,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, "Updated list:")
         return
 
+    # التحقق هل المستخدم داس على زرار ملف ليرسله له البوت
+    path_key = " -> ".join(path) if path else "Root (Home)"
+    files = file_database.get(path_key, [])
+    for f in files:
+        if f["name"] in text:
+            if f["type"] == "document":
+                await update.message.reply_document(document=f["file_id"])
+            elif f["type"] == "photo":
+                await update.message.reply_photo(photo=f["file_id"])
+            elif f["type"] == "audio":
+                await update.message.reply_audio(audio=f["file_id"])
+            return
+
     current_node = get_node(path)
 
-    # Check if text matches any key in current node
     matched_key = None
     if isinstance(current_node, dict):
         for key in current_node.keys():
-            if key.strip() == text:
+            if key.strip() == text and key != "has_lab":
                 matched_key = key
                 break
 
@@ -266,24 +289,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, f"Section: {text}")
         return
 
-    path_key = " -> ".join(path) if path else "Root (Home)"
-    files = file_database.get(path_key, [])
-    for f in files:
-        if f["name"] in text:
-            if f["type"] == "document":
-                await update.message.reply_document(document=f["file_id"])
-            elif f["type"] == "photo":
-                await update.message.reply_photo(photo=f["file_id"])
-            elif f["type"] == "audio":
-                await update.message.reply_audio(audio=f["file_id"])
-            return
-
 async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
         return
 
-    path = context.user_data.get("path", [])
+    if "path" not in context.user_data:
+        context.user_data["path"] = []
+        
+    path = context.user_data["path"]
     path_key = " -> ".join(path) if path else "Root (Home)"
 
     if path_key not in file_database:
@@ -312,7 +326,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     })
 
     await update.message.reply_text(f"✅ Successfully uploaded `{file_name}` to `{path_key}`!", parse_mode="Markdown")
-    await send_menu(update, context, "Location updated:")
+    await send_menu(update, context, "File stored. Here are the updated buttons:")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -325,4 +339,4 @@ if __name__ == "__main__":
 
     print("🤖 Bot is running...")
     app.run_polling()
-        
+    
