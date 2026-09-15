@@ -1,3 +1,4 @@
+import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
@@ -9,8 +10,8 @@ from telegram.ext import (
     filters,
 )
 
-# 🔑 التوكن الجديد والمعرفات المحددة
-BOT_TOKEN = "8791458947:AAGFvWvNbZpFLa8abGZA4P0WKxaED_hTNGE"
+# 🔑 جلب التوكن من متغيرات البيئة بـ Railway، وفي حال عدم وجوده يستعين بالتوكن الجديد
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAG1ASMbyCNpxSWm_vtkxsSg8yPLISyoPbQ")
 ADMIN_IDS = [6448008082, 8791458947]
 
 # 💾 قاعدة البيانات المؤقتة
