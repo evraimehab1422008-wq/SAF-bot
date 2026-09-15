@@ -10,13 +10,12 @@ from telegram.ext import (
 )
 
 # Token configuration and Admin list
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFcWiXh1taYQTgN9AxzlpYyqHpl-X1_0KY")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAG2A5K0soKYuahev0439Ixg0yiHehaJ9MQ")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
-# Structure with short names, Clipboard for Evaluation, and cleaned Biophysics name
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
@@ -122,18 +121,23 @@ STRUCTURE = {
 
 file_database = {}
 
+def get_node(path):
+    current = STRUCTURE
+    for p in path:
+        if isinstance(current, dict) and p in current:
+            current = current[p]
+        else:
+            return None
+    return current
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["path"] = []
     context.user_data["deleting_mode"] = False
-    await send_menu(update, context, "Welcome to Physical Therapy Academic Bot 🩺\nSelect a section from the keyboard below:")
+    await send_menu(update, context, "Welcome to Physical Therapy Academic Bot 🩺\nSelect a section:")
 
 async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     path = context.user_data.get("path", [])
-    
-    current_node = STRUCTURE
-    for p in path:
-        if isinstance(current_node, dict) and p in current_node:
-            current_node = current_node[p]
+    current_node = get_node(path)
 
     keyboard = []
 
@@ -161,8 +165,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    msg_text = text
-    msg_text += f"\n\n📍 **Current Location:** `{path_key}`"
+    msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
     if files:
         msg_text += "\n\n📚 **Available Files Here:**\n"
         for idx, f in enumerate(files, 1):
@@ -178,7 +181,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    path = context.user_data.get("path", [])
+    path = context.user_data.setdefault("path", [])
     user_id = update.effective_user.id
 
     if text == "Home":
@@ -225,10 +228,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, "Updated list:")
         return
 
-    current_node = STRUCTURE
-    for p in path:
-        if isinstance(current_node, dict) and p in current_node:
-            current_node = current_node[p]
+    current_node = get_node(path)
 
     if isinstance(current_node, dict) and text in current_node:
         item = current_node[text]
