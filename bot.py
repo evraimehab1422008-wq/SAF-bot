@@ -180,8 +180,11 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
     await update.message.reply_text(msg_text, reply_markup=reply_markup, parse_mode="Markdown")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    path = context.user_data.setdefault("path", [])
+    text = update.message.text.strip()
+    
+    if "path" not in context.user_data:
+        context.user_data["path"] = []
+    path = context.user_data["path"]
     user_id = update.effective_user.id
 
     if text == "Home":
@@ -230,9 +233,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     current_node = get_node(path)
 
-    if isinstance(current_node, dict) and text in current_node:
-        item = current_node[text]
-        path.append(text)
+    # Check if text matches any key in current node
+    matched_key = None
+    if isinstance(current_node, dict):
+        for key in current_node.keys():
+            if key.strip() == text:
+                matched_key = key
+                break
+
+    if matched_key:
+        item = current_node[matched_key]
+        path.append(matched_key)
         context.user_data["path"] = path
 
         if isinstance(item, dict) and "has_lab" in item:
@@ -243,10 +254,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 keyboard.append([KeyboardButton("Theoretical")])
             keyboard.append([KeyboardButton("Back"), KeyboardButton("Home")])
             
-            await update.message.reply_text(f"Select component for ({text}):", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+            await update.message.reply_text(f"Select component for ({matched_key}):", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
             return
         else:
-            await send_menu(update, context, f"Selected: {text}")
+            await send_menu(update, context, f"Selected: {matched_key}")
             return
 
     if text in ["Theoretical", "Practical"]:
@@ -314,4 +325,4 @@ if __name__ == "__main__":
 
     print("🤖 Bot is running...")
     app.run_polling()
-    
+        
