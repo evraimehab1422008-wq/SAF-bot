@@ -17,7 +17,7 @@ logging.basicConfig(
 TOKEN = "8791458947:AAFa5UpBX81-I_jV9lLzuEI4cD073dQ5qyg"
 
 # 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا
-ADMIN_IDS = [6448008082،8791458947]
+ADMIN_IDS = [6448008082, 8791458947]
 
 # Database Setup
 def init_db():
