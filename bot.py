@@ -3,14 +3,14 @@ import logging
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
-    CommandHandler,
+    CommandHandler, 
     MessageHandler,
     ContextTypes,
     filters,
 )
 
 # 🔑 التوكن والأدمن
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGuTzvtNti_90CLWOs3nwB35i2pmdgVFmk")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGPsh3Rv8DvN1YRQpG19aSLBGy8sHvjL8k")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
