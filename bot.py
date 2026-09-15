@@ -14,9 +14,10 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-TOKEN = "8791458947:AAGKOxGyHt9bTkI8rjckKYTB1aJywbUO9bU"
+TOKEN = "8791458947:AAFa5UpBX81-I_jV9lLzuEI4cD073dQ5qyg"
+
 # 🔑 ضَع أرقام الـ User IDs الخاصة بالأدمنز هنا
-ADMIN_IDS = [6448008082]
+ADMIN_IDS = [6448008082،8791458947]
 
 # Database Setup
 def init_db():
@@ -59,111 +60,72 @@ def db_delete_file(db_id):
     conn.close()
 
 def is_admin(user_id: int) -> bool:
-    """التحقق مما إذا كان المستخدم أدمن"""
     return user_id in ADMIN_IDS
 
-# Physical Therapy Curriculum Data
+# Structure Definition
 CURRICULUM = {
     "Level 1 🥇": {
-        "Semester 1 📚": {
-            "ANAT_111": {"name": "Human Anatomy I 🦴", "lab": True},
-            "BIOC_111": {"name": "Biochemistry I 🧪", "lab": False},
-            "HIST_111": {"name": "Histology 🔬", "lab": True},
-            "HPHY_111": {"name": "Human Physiology I 🫀", "lab": True},
-        },
-        "Semester 2 📚": {
-            "ANAT_112": {"name": "Human Anatomy II 🦴", "lab": True},
-            "BIOC_112": {"name": "Biochemistry II 🧪", "lab": False},
-            "HPHY_112": {"name": "Human Physiology II 🫀", "lab": True},
-            "BIOM_112": {"name": "Kinesiology I 🦵", "lab": True},
-            "BIOP_112": {"name": "Biophysics II ⚡", "lab": True},
-        }
+        "ANAT_111": {"name": "Human Anatomy I 🦴", "lab": True, "tracks": ["Main 📌"]},
+        "BIOC_111": {"name": "Biochemistry I 🧪", "lab": False, "tracks": ["Main 📌"]},
+        "HIST_111": {"name": "Histology 🔬", "lab": True, "tracks": ["Main 📌"]},
+        "HPHY_111": {"name": "Human Physiology I 🫀", "lab": True, "tracks": ["Main 📌"]},
+        "ANAT_112": {"name": "Human Anatomy II 🦴", "lab": True, "tracks": ["Main 📌"]},
+        "BIOC_112": {"name": "Biochemistry II 🧪", "lab": False, "tracks": ["Main 📌"]},
+        "HPHY_112": {"name": "Human Physiology II 🫀", "lab": True, "tracks": ["Main 📌"]},
+        "BIOM_112": {"name": "Kinesiology I 🦵", "lab": True, "tracks": ["Main 📌"]},
+        "BIOP_112": {"name": "Biophysics II ⚡", "lab": True, "tracks": ["Main 📌"]},
     },
     "Level 2 🥈": {
-        "Semester 3 📚": {
-            "ANAT_211": {"name": "Neuroanatomy 🧠", "lab": True},
-            "BIOM_211": {"name": "Biomechanics II ⚙️", "lab": True},
-            "BS_221": {"name": "Electrotherapy I ⚡", "lab": True},
-            "BS_211": {"name": "Evaluation & Measurements I 📏", "lab": True},
-            "HPHY_211": {"name": "Neurophysiology 🧠", "lab": False},
-            "BS_231": {"name": "Therapeutic Exercises I 🏋️‍♂️", "lab": True},
-        },
-        "Semester 4 📚": {
-            "BIOM_212": {"name": "Biomechanics III ⚙️", "lab": True},
-            "CMED_211": {"name": "Community Health & Hygiene 🏥", "lab": False},
-            "BS_212": {"name": "Evaluation & Measurements II 📏", "lab": True},
-            "HPHY_212": {"name": "Exercise Physiology 🏃‍♂️", "lab": False},
-            "PATH_212": {"name": "Pathology for PT 🔬", "lab": False},
-            "BS_232": {"name": "Manual Therapy 👐", "lab": True},
-            "BS_222": {"name": "Electrotherapy II ⚡", "lab": True},
-            "ANAT_212": {"name": "Human Anatomy IV 🦴", "lab": True},
-            "BS_255": {"name": "Legal & Ethical Issues ⚖️", "lab": False},
-        }
+        "ANAT_211": {"name": "Neuroanatomy 🧠", "lab": True, "tracks": ["Main 📌"]},
+        "BIOM_211": {"name": "Biomechanics II ⚙️", "lab": True, "tracks": ["Main 📌"]},
+        "BS_221": {"name": "Electrotherapy I ⚡", "lab": True, "tracks": ["Main 📌"]},
+        "BS_211": {"name": "Evaluation & Measurements I 📏", "lab": True, "tracks": ["Main 📌"]},
+        "HPHY_211": {"name": "Neurophysiology 🧠", "lab": False, "tracks": ["Main 📌"]},
+        "BS_231": {"name": "Therapeutic Exercises I 🏋️‍♂️", "lab": True, "tracks": ["Main 📌"]},
+        "BIOM_212": {"name": "Biomechanics III ⚙️", "lab": True, "tracks": ["Main 📌"]},
+        "CMED_211": {"name": "Community Health & Hygiene 🏥", "lab": False, "tracks": ["Main 📌"]},
+        "BS_212": {"name": "Evaluation & Measurements II 📏", "lab": True, "tracks": ["Main 📌"]},
+        "HPHY_212": {"name": "Exercise Physiology 🏃‍♂️", "lab": False, "tracks": ["Main 📌"]},
+        "PATH_212": {"name": "Pathology for PT 🔬", "lab": False, "tracks": ["Main 📌"]},
+        "BS_232": {"name": "Manual Therapy 👐", "lab": True, "tracks": ["Main 📌"]},
+        "BS_222": {"name": "Electrotherapy II ⚡", "lab": True, "tracks": ["Main 📌"]},
+        "ANAT_212": {"name": "Human Anatomy IV 🦴", "lab": True, "tracks": ["Main 📌"]},
+        "BS_255": {"name": "Legal & Ethical Issues ⚖️", "lab": False, "tracks": ["Main 📌"]},
     },
     "Level 3 🥉": {
         "Semester 5 📚": {
-            "BIOM_311": {"name": "Biomechanics IV ⚙️", "lab": True},
-            "BS_341": {"name": "Hydrotherapy 🌊", "lab": True},
-            "BS_355": {"name": "Research & Medical Statistics 📊", "lab": False},
-            "BS_357": {"name": "Management & Clinical Decision 📋", "lab": False},
-            "PAPH_311": {"name": "Pathophysiology 🩺", "lab": False},
-            "PHAR_311": {"name": "Pharmacology for PT 💊", "lab": False},
-            "REHA_311": {"name": "Rehabilitation ♿", "lab": False},
+            "BIOM_311": {"name": "Biomechanics IV ⚙️", "lab": True, "tracks": ["Main 📌"]},
+            "BS_341": {"name": "Hydrotherapy 🌊", "lab": True, "tracks": ["Main 📌"]},
+            "BS_355": {"name": "Research & Medical Statistics 📊", "lab": False, "tracks": ["Main 📌"]},
+            "BS_357": {"name": "Management & Clinical Decision 📋", "lab": False, "tracks": ["Main 📌"]},
+            "PAPH_311": {"name": "Pathophysiology 🩺", "lab": False, "tracks": ["Main 📌"]},
+            "PHAR_311": {"name": "Pharmacology for PT 💊", "lab": False, "tracks": ["Main 📌"]},
+            "REHA_311": {"name": "Rehabilitation ♿", "lab": False, "tracks": ["Main 📌"]},
         },
-        "Semester 6 - Batna Term 🫁": {
-            "MED_312": {"name": "Medicine for Cardiovascular 🫀", "lab": False},
-            "MED_314": {"name": "Medicine for Pulmonary & Internal 🫁", "lab": False},
-            "CAPU_312": {"name": "Clinical Practice for Geriatrics 👴", "lab": True},
-            "CAPU_314": {"name": "Clinical Practice for Cardio & Pulm 🩺", "lab": True},
-            "CAPU_326": {"name": "Geriatric Rehabilitation 👵", "lab": True},
-            "CAPU_324": {"name": "PT for Pulmonary & Internal 🫁", "lab": True},
-            "CAPU_322": {"name": "PT for Cardiovascular Disorders 🫀", "lab": True},
-            "BIOC_312": {"name": "Clinical Nutrition 🥗", "lab": False},
-            "PSYC_312": {"name": "Psychology for Handicapped 🧠", "lab": False},
-            "RAD_312": {"name": "Radiology 🩻", "lab": False},
+        "Term Batna 🫁": {
+            "BATNA_MAIN": {"name": "General Subjects 📚", "lab": True, "tracks": ["General Track 🟢"]},
+            "RAD_312": {"name": "Radiology 🩻", "lab": False, "tracks": ["Radiology Track 🟡"]},
+            "CARDIO_312": {"name": "Cardio & Pulmonary 🫀", "lab": True, "tracks": ["Cardio Track 🔴"]},
         }
     },
     "Level 4 🏅": {
-        "Semester 7 - Gyna Term 🤰": {
-            "BIOM_411": {"name": "Ergonomics 🪑", "lab": True},
-            "SURG_411": {"name": "Clinical Practice Integumentary 🩺", "lab": True},
-            "PT_421": {"name": "PT for Integumentary & Surgical 🩹", "lab": True},
-            "SURG_GYPD": {"name": "Clinical Practice for Women Health 🚺", "lab": True},
-            "GYPD_421": {"name": "PT for Women Health 🤰", "lab": True},
-            "MED_411": {"name": "Clinical Medicine for Women Health 🏥", "lab": False},
-            "PT_441": {"name": "Evidence Based Practice 📑", "lab": False},
-            "SURG_411_GEN": {"name": "General Surgery & ICU 😷", "lab": False},
+        "Term Gyna 🤰": {
+            "GYNA_MAIN": {"name": "General & Surgery 🏥", "lab": True, "tracks": ["General & Surgery 🩺"]},
+            "GYNA_PT": {"name": "Gynaecology & Women Health 🤰", "lab": True, "tracks": ["Gyna Track 🌸"]},
         },
-        "Semester 8 - Orthopedic Term 🦴": {
-            "MED_412": {"name": "Medicine for Traumatology 🚑", "lab": False},
-            "SURG_412": {"name": "Medicine for Orthopedic Surgery 🦴", "lab": False},
-            "MUSK_422": {"name": "Physical Diagnosis & Exam 🔍", "lab": True},
-            "MUSK_424": {"name": "PT for Orthopedics 🦵", "lab": True},
-            "PROS_412": {"name": "Orthotics & Prosthetics 🦾", "lab": True},
-            "RAD_412": {"name": "Radiodiagnosis 🩻", "lab": False},
-            "MUSK_426": {"name": "Sport Physical Therapy ⚽", "lab": True},
-            "MUSK_412": {"name": "Clinical Practice Orthopedics 🏥", "lab": True},
+        "Term Ortho 🦴": {
+            "ORTHO_MED": {"name": "Orthopedic Surgery & Traumatology 🦴", "lab": False, "tracks": ["Medical Ortho 🩺"]},
+            "ORTHO_PT": {"name": "Physical Therapy for Orthopedics 🦵", "lab": True, "tracks": ["PT Ortho 🏋️‍♂️"]},
         }
     },
     "Level 5 🏆": {
-        "Semester 9 - Pediatric Term 👶": {
-            "MED_511": {"name": "Clinical Medicine for Pediatrics 👶", "lab": False},
-            "GYPD_511": {"name": "Clinical Practice Pediatrics 🧸", "lab": True},
-            "GYPD_521": {"name": "Motor Development Across Life Span 👶➡️👴", "lab": True},
-            "GYPD_525": {"name": "PT for Pediatrics 👶", "lab": True},
-            "GYPD_527": {"name": "PT for Pediatric Surgical 🏥", "lab": True},
-            "GYPD_529": {"name": "Speech Therapy 🗣️", "lab": False},
-            "OT_511": {"name": "Occupational Therapy 🎨", "lab": False},
+        "Term Pedia 👶": {
+            "PEDIA_MED": {"name": "Pediatric Medicine & Surgery 👶", "lab": False, "tracks": ["Pediatric Medicine 🏥"]},
+            "PEDIA_PT": {"name": "Physical Therapy for Pediatrics 🧸", "lab": True, "tracks": ["Pediatric PT 🎨"]},
         },
-        "Semester 10 - Neuro Term 🧠": {
-            "MED_512": {"name": "Clinical Medicine for Neurology 🧠", "lab": False},
-            "NEUR_512": {"name": "Clinical Practice Neurosurgery 🏥", "lab": True},
-            "NEUR_522": {"name": "PT for Neurological Conditions 🧠", "lab": True},
-            "NEUR_524": {"name": "PT for Neurosurgical Conditions 🔪", "lab": True},
-            "SURG_512": {"name": "Neurosurgery 🧠", "lab": False},
-            "NEUR_526": {"name": "Recent Approaches in Neuro Rehab 🧬", "lab": True},
-            "NEUR_525": {"name": "Electrodiagnosis ⚡", "lab": True},
-            "PT_541": {"name": "Motor Learning & Control 🦾", "lab": False},
+        "Term Neuro 🧠": {
+            "NEURO_MED": {"name": "Neurology & Neurosurgery 🧠", "lab": False, "tracks": ["Neurology Medicine 🏥"]},
+            "NEURO_PT": {"name": "Physical Therapy for Neurology 🦾", "lab": True, "tracks": ["Neurology PT 🧬"]},
         }
     }
 }
@@ -198,10 +160,8 @@ async def display_section(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
 
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
-    # عرض الملفات مع إخفاء الكابشن للمستخدمين العاديين وإظهاره للأدمن فقط
     for idx, item in enumerate(items):
         file_caption = f"File #{idx+1} [ID: {item['db_id']}]" if user_is_admin else None
-        
         if item["type"] == "document":
             await update.message.reply_document(document=item["file_id"], caption=file_caption)
         elif item["type"] == "photo":
@@ -228,7 +188,11 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif step_type == 'LEVEL':
         level = prev_step['level']
         context.user_data['level'] = level
-        keyboard = [[KeyboardButton(sem)] for sem in CURRICULUM[level].keys()]
+        data = CURRICULUM[level]
+        if "ANAT_111" in data or "ANAT_211" in data:
+            keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in data.items()]
+        else:
+            keyboard = [[KeyboardButton(sem)] for sem in data.keys()]
         await display_section(update, context, f"Level: {level}", f"LEVEL_{level}", keyboard)
     elif step_type == 'SEMESTER':
         level = prev_step['level']
@@ -240,7 +204,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await display_section(update, context, f"{level} > {sem}", f"SEM_{sem}", keyboard)
     elif step_type == 'SUBJECT':
         level = prev_step['level']
-        sem = prev_step['semester']
+        sem = prev_step.get('semester')
         subj_code = prev_step['subj_code']
         subj_name = prev_step['subj_name']
         context.user_data['level'] = level
@@ -248,7 +212,7 @@ async def handle_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['subject_code'] = subj_code
         context.user_data['subject_name'] = subj_name
         
-        subj_info = CURRICULUM[level][sem][subj_code]
+        subj_info = CURRICULUM[level][sem][subj_code] if sem else CURRICULUM[level][subj_code]
         keyboard = [[KeyboardButton("Theoretical 📖")]]
         if subj_info["lab"]:
             keyboard.append([KeyboardButton("Practical 🔬")])
@@ -272,37 +236,54 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         history.append({'type': 'ROOT'})
         context.user_data['step_history'] = history
         context.user_data['level'] = text
-        keyboard = [[KeyboardButton(sem)] for sem in CURRICULUM[text].keys()]
+        data = CURRICULUM[text]
+        
+        # إذا كان Level 1 أو Level 2 يعرض المواد المباشرة
+        if text in ["Level 1 🥇", "Level 2 🥈"]:
+            keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in data.items()]
+        else:
+            keyboard = [[KeyboardButton(sem)] for sem in data.keys()]
+            
         await display_section(update, context, f"Level: {text}", f"LEVEL_{text}", keyboard)
         return
 
-    # 2. Semester Selection
+    # 2. Semester/Term Selection
     level = context.user_data.get('level')
-    if level and text in CURRICULUM[level]:
-        history.append({'type': 'LEVEL', 'level': level})
-        context.user_data['step_history'] = history
-        context.user_data['semester'] = text
-        subjects = CURRICULUM[level][text]
-        keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in subjects.items()]
-        await display_section(update, context, f"{level} > {text}", f"SEM_{text}", keyboard)
-        return
+    if level and level in CURRICULUM and isinstance(CURRICULUM[level], dict):
+        if text in CURRICULUM[level] and isinstance(CURRICULUM[level][text], dict):
+            history.append({'type': 'LEVEL', 'level': level})
+            context.user_data['step_history'] = history
+            context.user_data['semester'] = text
+            subjects = CURRICULUM[level][text]
+            keyboard = [[KeyboardButton(subj_info["name"])] for subj_code, subj_info in subjects.items()]
+            await display_section(update, context, f"{level} > {text}", f"SEM_{text}", keyboard)
+            return
 
     # 3. Subject Selection
     semester = context.user_data.get('semester')
-    if level and semester:
-        subjects = CURRICULUM[level][semester]
-        for subj_code, subj_info in subjects.items():
-            if text == subj_info["name"]:
+    subjects_to_check = {}
+    if level and level in CURRICULUM:
+        if semester and semester in CURRICULUM[level]:
+            subjects_to_check = CURRICULUM[level][semester]
+        elif level in ["Level 1 🥇", "Level 2 🥈"]:
+            subjects_to_check = CURRICULUM[level]
+
+    for subj_code, subj_info in subjects_to_check.items():
+        if text == subj_info["name"]:
+            if semester:
                 history.append({'type': 'SEMESTER', 'level': level, 'semester': semester})
-                context.user_data['step_history'] = history
-                context.user_data['subject_code'] = subj_code
-                context.user_data['subject_name'] = text
+            else:
+                history.append({'type': 'LEVEL', 'level': level})
                 
-                keyboard = [[KeyboardButton("Theoretical 📖")]]
-                if subj_info["lab"]:
-                    keyboard.append([KeyboardButton("Practical 🔬")])
-                await display_section(update, context, f"Subject: {text}", f"SUBJ_{subj_code}", keyboard)
-                return
+            context.user_data['step_history'] = history
+            context.user_data['subject_code'] = subj_code
+            context.user_data['subject_name'] = text
+            
+            keyboard = [[KeyboardButton("Theoretical 📖")]]
+            if subj_info["lab"]:
+                keyboard.append([KeyboardButton("Practical 🔬")])
+            await display_section(update, context, f"Subject: {text}", f"SUBJ_{subj_code}", keyboard)
+            return
 
     # 4. Section Selection (Theoretical / Practical)
     if text in ["Theoretical 📖", "Practical 🔬"]:
@@ -320,7 +301,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await display_section(update, context, f"{subj_name} ({text})", section_path, [])
         return
 
-    # 5. Delete Menu Action (للأدمن فقط)
+    # 5. Delete Menu Action (Admin Only)
     if text == "🗑 Delete Content":
         if not is_admin(user_id):
             await update.message.reply_text("🚫 Only admins can delete content.")
@@ -341,7 +322,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Select an item to delete:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
         return
 
-    # 6. Item Deletion Trigger (للأدمن فقط)
+    # 6. Item Deletion Trigger (Admin Only)
     if text.startswith("❌ Delete Item #"):
         if not is_admin(user_id):
             await update.message.reply_text("🚫 Only admins can delete content.")
