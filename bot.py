@@ -9,7 +9,6 @@ from telegram.ext import (
     filters,
 )
 
-# Token configuration and Admin list
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAG2A5K0soKYuahev0439Ixg0yiHehaJ9MQ")
 ADMIN_IDS = [6448008082, 8791458947]
 
@@ -141,7 +140,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
-    # 1. إضافة أزرار الأقسام أو خيارات Theoretical/Practical
+    # 1. إظهار الخيارات المتاحة واستبعاد كلمة has_lab نهائياً من الأزرار
     if isinstance(current_node, dict):
         if "has_lab" in current_node:
             if current_node["has_lab"]:
@@ -149,14 +148,15 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             else:
                 keyboard.append([KeyboardButton("Theoretical")])
         else:
-            keys = list(current_node.keys())
+            # تصفية المفاتيح عشان ما تظهرش has_lab إطلاقاً
+            keys = [k for k in current_node.keys() if k != "has_lab"]
             for i in range(0, len(keys), 2):
                 row = [KeyboardButton(keys[i])]
                 if i + 1 < len(keys):
                     row.append(KeyboardButton(keys[i+1]))
                 keyboard.append(row)
 
-    # 2. تحويل الملفات المرفوعة لأزرار قابلة للضغط!
+    # 2. تحويل أي ملف أو صورة مرفوعة إلى زرار حقيقي في أسفل الشاشة
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
 
@@ -165,7 +165,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
             keyboard.append([KeyboardButton(f"{icon} {f['name']}")])
 
-    # 3. أزرار التحكم
+    # 3. أزرار التنقل والتحكم
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -181,7 +181,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
     if files:
-        msg_text += "\n\n📚 **Click any file below to download/view it:**"
+        msg_text += "\n\n📚 **Click any button below to view/download:**"
     else:
         msg_text += "\n\n📂 No files uploaded in this location yet."
 
@@ -242,7 +242,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, "Updated list:")
         return
 
-    # التحقق هل المستخدم داس على زرار ملف ليرسله له البوت
+    # التفاعل مع الضغط على زرار ملف أو صورة
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
     for f in files:
@@ -309,12 +309,12 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         file_type = "document"
     elif update.message.photo:
         file_id = update.message.photo[-1].file_id
-        file_name = update.message.caption or f"Image_{len(file_database[path_key])+1}"
+        file_name = update.message.caption or f"Image_{len(file_database[path_key])+1}.jpg"
         file_type = "photo"
     elif update.message.voice or update.message.audio:
         media = update.message.voice or update.message.audio
         file_id = media.file_id
-        file_name = update.message.caption or f"Audio_{len(file_database[path_key])+1}"
+        file_name = update.message.caption or f"Audio_{len(file_database[path_key])+1}.mp3"
         file_type = "audio"
     else:
         return
@@ -325,8 +325,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         "type": file_type
     })
 
-    await update.message.reply_text(f"✅ Successfully uploaded `{file_name}` to `{path_key}`!", parse_mode="Markdown")
-    await send_menu(update, context, "File stored. Here are the updated buttons:")
+    await update.message.reply_text(f"✅ Successfully saved `{file_name}`!", parse_mode="Markdown")
+    await send_menu(update, context, "File saved successfully!")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -337,6 +337,6 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(media_filter, handle_media_upload))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🤖 Bot is running...")
+    print("🤖 Bot is running smoothly...")
     app.run_polling()
     
