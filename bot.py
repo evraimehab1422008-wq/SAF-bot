@@ -10,112 +10,112 @@ from telegram.ext import (
 )
 
 # Token configuration and Admin list
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFCFzkwofhAY6dERRCjQPGZSRmSozMSDFM")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAEyFe7wPZgv7CTaJV_ElGt0IFHINZ6kXiM")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
-# Structure with colored circles & subject emojis preserved
+# Structure with short names & refined Clipboard icons
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
-            "🦴 Human Anatomy I": {"has_lab": True},
+            "🦴 Anatomy I": {"has_lab": True},
             "🧪 Biochemistry I": {"has_lab": False},
             "🔬 Histology": {"has_lab": True},
-            "🫀 Human Physiology I": {"has_lab": True}
+            "🫀 Physiology I": {"has_lab": True}
         },
         "Semester 2": {
-            "🦴 Human Anatomy II": {"has_lab": True},
+            "🦴 Anatomy II": {"has_lab": True},
             "🧪 Biochemistry II": {"has_lab": False},
-            "🫀 Human Physiology II": {"has_lab": True},
+            "🫀 Physiology II": {"has_lab": True},
             "🏃 Kinesiology I": {"has_lab": True},
             "⚡ Biophysics II": {"has_lab": True}
         }
     },
     "🟠 Level 2": {
         "Semester 3": {
-            "🧠 Human Anatomy III (Neuroanatomy)": {"has_lab": True},
-            "📐 Biomechanics II": {"has_lab": True},
+            "🧠 Neuroanatomy": {"has_lab": True},
+            "🦾 Biomechanics II": {"has_lab": True},
             "⚡ Electrotherapy I": {"has_lab": True},
-            "📏 Evaluation/Measurements I": {"has_lab": True},
-            "🧠 Human Physiology III (Neurophysiology)": {"has_lab": False},
-            "🏋️ Therapeutic Exercises I": {"has_lab": True}
+            "📋 Evaluation I": {"has_lab": True},
+            "🧠 Neurophysiology": {"has_lab": False},
+            "🏋️ Therapeutic Ex. I": {"has_lab": True}
         },
         "Semester 4": {
-            "📐 Biomechanics III": {"has_lab": True},
-            "🩺 Community Health and Hygiene": {"has_lab": False},
-            "📏 Evaluation/Measurements II": {"has_lab": True},
-            "🫀 Physiology IV (Exercise Physiology)": {"has_lab": False},
-            "🔬 Pathology for Physical Therapy": {"has_lab": False},
+            "🦾 Biomechanics III": {"has_lab": True},
+            "🩺 Community Health": {"has_lab": False},
+            "📋 Evaluation II": {"has_lab": True},
+            "🫀 Exercise Physiology": {"has_lab": False},
+            "🔬 Pathology": {"has_lab": False},
             "👐 Manual Therapy": {"has_lab": True},
             "⚡ Electrotherapy II": {"has_lab": True},
-            "🦴 Human Anatomy IV": {"has_lab": True},
-            "⚖️ Legal and Ethical Issues in Physiotherapy": {"has_lab": False}
+            "🦴 Anatomy IV": {"has_lab": True},
+            "⚖️ Legal & Ethics": {"has_lab": False}
         }
     },
     "🟡 Level 3": {
         "Semester 5": {
-            "📐 Biomechanics IV": {"has_lab": True},
+            "🦾 Biomechanics IV": {"has_lab": True},
             "🌊 Hydrotherapy": {"has_lab": True},
-            "📊 Research and Medical Statistics": {"has_lab": False},
-            "💼 Management and Clinical Decision": {"has_lab": False},
+            "📊 Research & Statistics": {"has_lab": False},
+            "💼 Management & Decision": {"has_lab": False},
             "🩺 Pathophysiology": {"has_lab": False},
-            "💊 Pharmacology for Physical Therapy": {"has_lab": False},
+            "💊 Pharmacology": {"has_lab": False},
             "♿ Rehabilitation": {"has_lab": False}
         }
     },
     "🟢 Tracks": {
-        "🫀 Cardiopulmonary & Internal (Batna)": {
-            "🩺 Clinical Medicine for Cardiovascular Conditions": {"has_lab": False},
-            "🫁 Clinical Medicine for Pulmonary and Internal Conditions": {"has_lab": False},
-            "👵 Clinical Practice for Geriatrics": {"has_lab": True},
-            "🫀 Clinical Practice for Cardiovascular and Pulmonary Disorders": {"has_lab": True},
-            "🦯 Geriatric Rehabilitation": {"has_lab": True},
-            "🫁 Physical Therapy for Pulmonary and Internal Conditions": {"has_lab": True},
-            "🫀 Physical Therapy for Cardiovascular Disorders": {"has_lab": True},
-            "🥗 Clinical Nutrition": {"has_lab": False},
-            "🧠 Psychology for Handicapped": {"has_lab": False},
+        "🫀 Batna Track": {
+            "🩺 Clin. Med. Cardio": {"has_lab": False},
+            "🫁 Clin. Med. Chest & Internal": {"has_lab": False},
+            "👵 Clin. Practice Geriatrics": {"has_lab": True},
+            "🫀 Clin. Practice Cardio & Pulm.": {"has_lab": True},
+            "🦯 Geriatric Rehab": {"has_lab": True},
+            "🫁 P.T. Chest & Internal": {"has_lab": True},
+            "🫀 P.T. Cardio": {"has_lab": True},
+            "🥗 Nutrition": {"has_lab": False},
+            "🧠 Psych. for Handicapped": {"has_lab": False},
             "🩻 Radiology": {"has_lab": False}
         },
-        "🤰 Womens Health & Surgery (Gyna)": {
+        "🤰 Gyna Track": {
             "🪑 Ergonomics": {"has_lab": True},
-            "🩺 Clinical Practice for Integumentary and Surgical Conditions": {"has_lab": True},
-            "🩹 Physical Therapy for Integumentary and Surgical Conditions": {"has_lab": True},
-            "👩‍⚕️ Clinical Practice for Women Health": {"has_lab": True},
-            "🤰 Physical Therapy for Women Health": {"has_lab": True},
-            "🩺 Clinical Medicine for Women Health": {"has_lab": False},
+            "🩺 Clin. Practice Surgery": {"has_lab": True},
+            "🩹 P.T. Surgery": {"has_lab": True},
+            "👩‍⚕️ Clin. Practice Womens Health": {"has_lab": True},
+            "🤰 P.T. Womens Health": {"has_lab": True},
+            "🩺 Clin. Med. Womens Health": {"has_lab": False},
             "📚 Evidence Based Practice": {"has_lab": False},
-            "🏥 General Surgery and Intensive Care": {"has_lab": False}
+            "🏥 General Surgery & ICU": {"has_lab": False}
         },
-        "🦴 Orthopedics Track": {
-            "🩺 Clinical Medicine for Traumatology": {"has_lab": False},
-            "🦴 Clinical Medicine for Orthopedic Surgery": {"has_lab": False},
-            "📏 Physical Diagnosis and Examination": {"has_lab": True},
-            "🦴 Physical Therapy for Orthopedics": {"has_lab": True},
-            "🦿 Orthotics and Prosthetics": {"has_lab": True},
+        "🦴 Ortho Track": {
+            "🩺 Clin. Med. Traumatology": {"has_lab": False},
+            "🦴 Clin. Med. Ortho Surgery": {"has_lab": False},
+            "📋 Physical Diagnosis": {"has_lab": True},
+            "🦴 P.T. Orthopedics": {"has_lab": True},
+            "🦿 Orthotics & Prosthetics": {"has_lab": True},
             "🩻 Radiodiagnosis": {"has_lab": False},
-            "⚽ Sport Physical Therapy": {"has_lab": True},
-            "🏥 Clinical Practice for Traumatology and Orthopedic Surgery": {"has_lab": True}
+            "⚽ Sport P.T.": {"has_lab": True},
+            "🏥 Clin. Practice Ortho": {"has_lab": True}
         },
-        "👶 Pediatrics Track": {
-            "🩺 Clinical Medicine for Pediatrics and Surgical Cases": {"has_lab": False},
-            "👶 Clinical Practice for Pediatrics and Surgical Cases": {"has_lab": True},
-            "🧸 Motor Development Across Life Span": {"has_lab": True},
-            "👶 Physical Therapy for Pediatrics": {"has_lab": True},
-            "🏥 Physical Therapy for Pediatric Surgical Conditions": {"has_lab": True},
+        "👶 Peds Track": {
+            "🩺 Clin. Med. Pediatrics": {"has_lab": False},
+            "👶 Clin. Practice Peds": {"has_lab": True},
+            "🧸 Motor Development": {"has_lab": True},
+            "👶 P.T. Pediatrics": {"has_lab": True},
+            "🏥 P.T. Pediatric Surgery": {"has_lab": True},
             "🗣️ Speech Therapy": {"has_lab": False},
             "🧩 Occupational Therapy": {"has_lab": False}
         },
-        "🧠 Neurology Track": {
-            "🩺 Clinical Medicine for Neurology": {"has_lab": False},
-            "🧠 Clinical Practice for Neurological and Neurosurgical Conditions": {"has_lab": True},
-            "🧠 Physical Therapy for Neurological Conditions": {"has_lab": True},
-            "🔪 Physical Therapy for Neurosurgical Conditions": {"has_lab": True},
+        "🧠 Neuro Track": {
+            "🩺 Clin. Med. Neurology": {"has_lab": False},
+            "🧠 Clin. Practice Neuro": {"has_lab": True},
+            "🧠 P.T. Neurology": {"has_lab": True},
+            "🔪 P.T. Neurosurgery": {"has_lab": True},
             "🏥 Neurosurgery": {"has_lab": False},
-            "🔬 Recent Approaches in Neurological Rehabilitation": {"has_lab": True},
+            "🔬 Recent Neuro Rehab": {"has_lab": True},
             "⚡ Electrodiagnosis": {"has_lab": True},
-            "🏃 Motor Learning and Control": {"has_lab": False}
+            "🏃 Motor Learning": {"has_lab": False}
         }
     }
 }
@@ -137,7 +137,6 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
-    # Display items in 2 columns
     if isinstance(current_node, dict):
         keys = list(current_node.keys())
         for i in range(0, len(keys), 2):
@@ -146,7 +145,6 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
                 row.append(KeyboardButton(keys[i+1]))
             keyboard.append(row)
 
-    # Control buttons in 2 columns
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -321,4 +319,4 @@ if __name__ == "__main__":
 
     print("🤖 Bot is running...")
     app.run_polling()
-    
+        
