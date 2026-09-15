@@ -30,7 +30,7 @@ STRUCTURE = {
             "🧪 Biochemistry II": {"has_lab": False},
             "🫀 Physiology II": {"has_lab": True},
             "🏃 Kinesiology I": {"has_lab": True},
-            "⚡ Biophysics II": {"has_lab": True}
+            "⚡ Biophysics I": {"has_lab": True}
         }
     },
     "🟠 Level 2": {
