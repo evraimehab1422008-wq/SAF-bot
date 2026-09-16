@@ -140,7 +140,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
-    # 1. إظهار الخيارات المتاحة واستبعاد كلمة has_lab نهائياً من الأزرار
+    # 1. إظهار أقسام القائمة وتصفية المفاتيح الداخلية
     if isinstance(current_node, dict):
         if "has_lab" in current_node:
             if current_node["has_lab"]:
@@ -148,7 +148,6 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             else:
                 keyboard.append([KeyboardButton("Theoretical")])
         else:
-            # تصفية المفاتيح عشان ما تظهرش has_lab إطلاقاً
             keys = [k for k in current_node.keys() if k != "has_lab"]
             for i in range(0, len(keys), 2):
                 row = [KeyboardButton(keys[i])]
@@ -156,7 +155,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
                     row.append(KeyboardButton(keys[i+1]))
                 keyboard.append(row)
 
-    # 2. تحويل أي ملف أو صورة مرفوعة إلى زرار حقيقي في أسفل الشاشة
+    # 2. تحويل الملفات المرفوعة لأزرار تفاعلية تحت
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
 
@@ -165,7 +164,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
             keyboard.append([KeyboardButton(f"{icon} {f['name']}")])
 
-    # 3. أزرار التنقل والتحكم
+    # 3. أزرار الملاحة والتحكم
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -180,9 +179,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
-    if files:
-        msg_text += "\n\n📚 **Click any button below to view/download:**"
-    else:
+    if not files:
         msg_text += "\n\n📂 No files uploaded in this location yet."
 
     if is_admin(update.effective_user.id):
@@ -242,7 +239,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, "Updated list:")
         return
 
-    # التفاعل مع الضغط على زرار ملف أو صورة
+    # التحقق إذا كان الضغط على زرار ملف مفرد ليعيده البوت فوراً
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
     for f in files:
@@ -325,8 +322,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         "type": file_type
     })
 
-    await update.message.reply_text(f"✅ Successfully saved `{file_name}`!", parse_mode="Markdown")
-    await send_menu(update, context, "File saved successfully!")
+    await update.message.reply_text(f"✅ Saved `{file_name}` to `{path_key}`!", parse_mode="Markdown")
+    await send_menu(update, context, "Updated Folder Status:")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -337,6 +334,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(media_filter, handle_media_upload))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🤖 Bot is running smoothly...")
+    print("🤖 Bot started perfectly...")
     app.run_polling()
-    
