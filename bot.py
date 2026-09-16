@@ -275,26 +275,30 @@ async def send_menu(update, context):
         title = "🏠 Home"
 
     # ---------------------------------------------
-    # Navigation
+    # Navigation - TWO COLUMNS
     # ---------------------------------------------
 
     if isinstance(node, dict):
 
-        for key in node.keys():
-            keyboard.append([key])
+        buttons = list(node.keys())
+
+        for i in range(0, len(buttons), 2):
+            row = buttons[i:i + 2]
+            keyboard.append(row)
 
     # ---------------------------------------------
     # Theoretical / Practical
     # ---------------------------------------------
 
-    # Show these only for subjects that actually have Lab
     if path and len(path) >= 3:
 
         subject_node = get_current_node(path)
 
         if isinstance(subject_node, dict):
             if subject_node.get("Lab") is True:
-                keyboard.append(["📘 Theoretical", "🧪 Practical"])
+                keyboard.append(
+                    ["📘 Theoretical", "🧪 Practical"]
+                )
 
     # ---------------------------------------------
     # Files
@@ -303,26 +307,37 @@ async def send_menu(update, context):
     files = get_files_in_path(path)
 
     if files:
+
         keyboard.append(["📂 Files"])
 
         for row in files:
-            keyboard.append([f"📄 {row['name']}"])
+            keyboard.append(
+                [f"📄 {row['name']}"]
+            )
 
     # ---------------------------------------------
     # Admin delete
     # ---------------------------------------------
 
     if is_admin(update.effective_user.id) and files:
-        keyboard.append(["🗑️ Delete File"])
+
+        keyboard.append(
+            ["🗑️ Delete File"]
+        )
 
     # ---------------------------------------------
     # Back
     # ---------------------------------------------
 
     if path:
-        keyboard.append(["⬅️ Back"])
 
-    keyboard.append(["🏠 Home"])
+        keyboard.append(
+            ["⬅️ Back"]
+        )
+
+    keyboard.append(
+        ["🏠 Home"]
+    )
 
     reply_markup = ReplyKeyboardMarkup(
         keyboard,
@@ -332,11 +347,20 @@ async def send_menu(update, context):
     text = f"{title}\n\n"
 
     if files:
-        text += f"📁 Files in this location: {len(files)}\n"
+
+        text += (
+            f"📁 Files in this location: "
+            f"{len(files)}\n"
+        )
+
     else:
-        text += "📁 No files in this location.\n"
+
+        text += (
+            "📁 No files in this location.\n"
+        )
 
     if is_admin(update.effective_user.id):
+
         text += "\n👑 Admin mode is ON."
 
     await update.message.reply_text(
@@ -349,35 +373,52 @@ async def send_menu(update, context):
 # START
 # =========================================================
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     context.user_data["path"] = []
+
     context.user_data["delete_mode"] = False
 
     await update.message.reply_text(
         "👋 Welcome to PT Materials Bot"
     )
 
-    await send_menu(update, context)
+    await send_menu(
+        update,
+        context
+    )
 
 
 # =========================================================
 # SAVE FILE
 # =========================================================
 
-async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_media_upload(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
-    # DEBUG
     print("====================================")
-    print("DEBUG USER ID:", update.effective_user.id)
-    print("DEBUG ADMIN IDS:", ADMIN_IDS)
+    print(
+        "DEBUG USER ID:",
+        update.effective_user.id
+    )
+    print(
+        "DEBUG ADMIN IDS:",
+        ADMIN_IDS
+    )
     print("====================================")
 
     # ---------------------------------------------
     # Admin check
     # ---------------------------------------------
 
-    if not is_admin(update.effective_user.id):
+    if not is_admin(
+        update.effective_user.id
+    ):
 
         await update.message.reply_text(
             "❌ You are not an admin."
@@ -385,7 +426,10 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         return
 
-    path = context.user_data.get("path", [])
+    path = context.user_data.get(
+        "path",
+        []
+    )
 
     path_key = get_path_key(path)
 
@@ -400,11 +444,16 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Document / PDF / TXT / etc.
     if update.message.document:
 
-        telegram_file = await update.message.document.get_file()
+        telegram_file = await (
+            update.message.document.get_file()
+        )
 
-        file_name = update.message.document.file_name
+        file_name = (
+            update.message.document.file_name
+        )
 
         if not file_name:
+
             file_name = "document"
 
         file_type = "document"
@@ -412,12 +461,18 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Photo
     elif update.message.photo:
 
-        telegram_file = await update.message.photo[-1].get_file()
+        telegram_file = await (
+            update.message.photo[-1].get_file()
+        )
 
         file_name = (
             update.message.caption
             if update.message.caption
-            else f"photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            else (
+                f"photo_"
+                f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                f".jpg"
+            )
         )
 
         file_type = "photo"
@@ -425,11 +480,16 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Audio
     elif update.message.audio:
 
-        telegram_file = await update.message.audio.get_file()
+        telegram_file = await (
+            update.message.audio.get_file()
+        )
 
-        file_name = update.message.audio.file_name
+        file_name = (
+            update.message.audio.file_name
+        )
 
         if not file_name:
+
             file_name = "audio"
 
         file_type = "audio"
@@ -437,20 +497,29 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Voice
     elif update.message.voice:
 
-        telegram_file = await update.message.voice.get_file()
+        telegram_file = await (
+            update.message.voice.get_file()
+        )
 
-        file_name = f"voice_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ogg"
+        file_name = (
+            f"voice_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            f".ogg"
+        )
 
         file_type = "voice"
 
     else:
+
         return
 
     # ---------------------------------------------
     # Clean filename
     # ---------------------------------------------
 
-    file_name = sanitize_filename(file_name)
+    file_name = sanitize_filename(
+        file_name
+    )
 
     # ---------------------------------------------
     # Duplicate check
@@ -464,7 +533,10 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         FROM files
         WHERE path_key = ? AND name = ?
         """,
-        (path_key, file_name),
+        (
+            path_key,
+            file_name
+        ),
     ).fetchone()
 
     conn.close()
@@ -483,9 +555,13 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
     # Storage directory
     # ---------------------------------------------
 
-    storage_dir = get_storage_directory(path)
+    storage_dir = get_storage_directory(
+        path
+    )
 
-    file_path = storage_dir / file_name
+    file_path = (
+        storage_dir / file_name
+    )
 
     # ---------------------------------------------
     # Avoid accidental overwrite
@@ -511,7 +587,10 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     except Exception as e:
 
-        print("DOWNLOAD ERROR:", repr(e))
+        print(
+            "DOWNLOAD ERROR:",
+            repr(e)
+        )
 
         await update.message.reply_text(
             "❌ حصل خطأ أثناء حفظ الملف."
@@ -555,6 +634,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         conn.close()
 
         if file_path.exists():
+
             file_path.unlink()
 
         await update.message.reply_text(
@@ -576,16 +656,24 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"💾 Storage: Railway Volume"
     )
 
-    await send_menu(update, context)
+    await send_menu(
+        update,
+        context
+    )
 
 
 # =========================================================
 # SEND SAVED FILE
 # =========================================================
 
-async def send_saved_file(update, row):
+async def send_saved_file(
+    update,
+    row
+):
 
-    file_path = Path(row["file_path"])
+    file_path = Path(
+        row["file_path"]
+    )
 
     if not file_path.exists():
 
@@ -599,7 +687,11 @@ async def send_saved_file(update, row):
 
         if row["file_type"] == "photo":
 
-            with open(file_path, "rb") as f:
+            with open(
+                file_path,
+                "rb"
+            ) as f:
+
                 await update.message.reply_photo(
                     photo=f,
                     caption=row["name"]
@@ -607,7 +699,11 @@ async def send_saved_file(update, row):
 
         elif row["file_type"] == "audio":
 
-            with open(file_path, "rb") as f:
+            with open(
+                file_path,
+                "rb"
+            ) as f:
+
                 await update.message.reply_audio(
                     audio=f,
                     caption=row["name"]
@@ -615,14 +711,22 @@ async def send_saved_file(update, row):
 
         elif row["file_type"] == "voice":
 
-            with open(file_path, "rb") as f:
+            with open(
+                file_path,
+                "rb"
+            ) as f:
+
                 await update.message.reply_voice(
                     voice=f
                 )
 
         else:
 
-            with open(file_path, "rb") as f:
+            with open(
+                file_path,
+                "rb"
+            ) as f:
+
                 await update.message.reply_document(
                     document=f,
                     caption=row["name"]
@@ -630,7 +734,10 @@ async def send_saved_file(update, row):
 
     except Exception as e:
 
-        print("SEND FILE ERROR:", repr(e))
+        print(
+            "SEND FILE ERROR:",
+            repr(e)
+        )
 
         await update.message.reply_text(
             "❌ حصل خطأ أثناء إرسال الملف."
@@ -641,9 +748,16 @@ async def send_saved_file(update, row):
 # DELETE FILE
 # =========================================================
 
-async def delete_file_record(update, context, file_name):
+async def delete_file_record(
+    update,
+    context,
+    file_name
+):
 
-    path = context.user_data.get("path", [])
+    path = context.user_data.get(
+        "path",
+        []
+    )
 
     path_key = get_path_key(path)
 
@@ -655,7 +769,10 @@ async def delete_file_record(update, context, file_name):
         FROM files
         WHERE path_key = ? AND name = ?
         """,
-        (path_key, file_name),
+        (
+            path_key,
+            file_name
+        ),
     ).fetchone()
 
     if not row:
@@ -668,7 +785,9 @@ async def delete_file_record(update, context, file_name):
 
         return
 
-    file_path = Path(row["file_path"])
+    file_path = Path(
+        row["file_path"]
+    )
 
     # Delete from DB
     conn.execute(
@@ -676,19 +795,28 @@ async def delete_file_record(update, context, file_name):
         DELETE FROM files
         WHERE id = ?
         """,
-        (row["id"],)
+        (
+            row["id"],
+        )
     )
 
     conn.commit()
+
     conn.close()
 
     # Delete physical file
     if file_path.exists():
 
         try:
+
             file_path.unlink()
+
         except Exception as e:
-            print("DELETE PHYSICAL FILE ERROR:", repr(e))
+
+            print(
+                "DELETE PHYSICAL FILE ERROR:",
+                repr(e)
+            )
 
     await update.message.reply_text(
         f"🗑️ تم حذف الملف:\n\n"
@@ -701,14 +829,21 @@ async def delete_file_record(update, context, file_name):
 # MESSAGE HANDLER
 # =========================================================
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
 
     text = update.message.text
 
     if not text:
+
         return
 
-    path = context.user_data.get("path", [])
+    path = context.user_data.get(
+        "path",
+        []
+    )
 
     # =====================================================
     # HOME
@@ -717,9 +852,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "🏠 Home":
 
         context.user_data["path"] = []
+
         context.user_data["delete_mode"] = False
 
-        await send_menu(update, context)
+        await send_menu(
+            update,
+            context
+        )
 
         return
 
@@ -730,12 +869,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ Back":
 
         if path:
+
             path.pop()
 
         context.user_data["path"] = path
+
         context.user_data["delete_mode"] = False
 
-        await send_menu(update, context)
+        await send_menu(
+            update,
+            context
+        )
 
         return
 
@@ -745,7 +889,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🗑️ Delete File":
 
-        if not is_admin(update.effective_user.id):
+        if not is_admin(
+            update.effective_user.id
+        ):
 
             await update.message.reply_text(
                 "❌ Admin only."
@@ -753,7 +899,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return
 
-        files = get_files_in_path(path)
+        files = get_files_in_path(
+            path
+        )
 
         if not files:
 
@@ -768,9 +916,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = []
 
         for row in files:
-            keyboard.append([f"🗑️ {row['name']}"])
 
-        keyboard.append(["⬅️ Cancel"])
+            keyboard.append(
+                [f"🗑️ {row['name']}"]
+            )
+
+        keyboard.append(
+            ["⬅️ Cancel"]
+        )
 
         await update.message.reply_text(
             "🗑️ اختار الملف اللي عايز تحذفه:",
@@ -790,7 +943,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["delete_mode"] = False
 
-        await send_menu(update, context)
+        await send_menu(
+            update,
+            context
+        )
 
         return
 
@@ -798,9 +954,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # DELETE SELECTED FILE
     # =====================================================
 
-    if context.user_data.get("delete_mode"):
+    if context.user_data.get(
+        "delete_mode"
+    ):
 
-        if not is_admin(update.effective_user.id):
+        if not is_admin(
+            update.effective_user.id
+        ):
 
             context.user_data["delete_mode"] = False
 
@@ -822,7 +982,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 file_name
             )
 
-            await send_menu(update, context)
+            await send_menu(
+                update,
+                context
+            )
 
             return
 
@@ -834,7 +997,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         file_name = text[3:].strip()
 
-        path_key = get_path_key(path)
+        path_key = get_path_key(
+            path
+        )
 
         conn = get_db()
 
@@ -844,7 +1009,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             FROM files
             WHERE path_key = ? AND name = ?
             """,
-            (path_key, file_name),
+            (
+                path_key,
+                file_name
+            ),
         ).fetchone()
 
         conn.close()
@@ -857,7 +1025,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return
 
-        await send_saved_file(update, row)
+        await send_saved_file(
+            update,
+            row
+        )
 
         return
 
@@ -867,7 +1038,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "📂 Files":
 
-        files = get_files_in_path(path)
+        files = get_files_in_path(
+            path
+        )
 
         if not files:
 
@@ -877,13 +1050,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             return
 
-        message = "📂 الملفات الموجودة:\n\n"
+        message = (
+            "📂 الملفات الموجودة:\n\n"
+        )
 
-        for index, row in enumerate(files, start=1):
+        for index, row in enumerate(
+            files,
+            start=1
+        ):
 
-            message += f"{index}. {row['name']}\n"
+            message += (
+                f"{index}. "
+                f"{row['name']}\n"
+            )
 
-        await update.message.reply_text(message)
+        await update.message.reply_text(
+            message
+        )
 
         return
 
@@ -891,13 +1074,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # THEORETICAL / PRACTICAL
     # =====================================================
 
-    if text in ("📘 Theoretical", "🧪 Practical"):
+    if text in (
+        "📘 Theoretical",
+        "🧪 Practical"
+    ):
 
-        context.user_data["path"] = path + [text]
+        context.user_data["path"] = (
+            path + [text]
+        )
 
         context.user_data["delete_mode"] = False
 
-        await send_menu(update, context)
+        await send_menu(
+            update,
+            context
+        )
 
         return
 
@@ -905,17 +1096,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # NAVIGATION
     # =====================================================
 
-    node = get_current_node(path)
+    node = get_current_node(
+        path
+    )
 
     if isinstance(node, dict):
 
         if text in node:
 
-            context.user_data["path"] = path + [text]
+            context.user_data["path"] = (
+                path + [text]
+            )
 
             context.user_data["delete_mode"] = False
 
-            await send_menu(update, context)
+            await send_menu(
+                update,
+                context
+            )
 
             return
 
@@ -932,9 +1130,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ERROR HANDLER
 # =========================================================
 
-async def error_handler(update, context):
+async def error_handler(
+    update,
+    context
+):
 
-    print("BOT ERROR:", repr(context.error))
+    print(
+        "BOT ERROR:",
+        repr(context.error)
+    )
 
 
 # =========================================================
@@ -944,10 +1148,26 @@ async def error_handler(update, context):
 def main():
 
     print("====================================")
-    print("PT MATERIALS BOT STARTING")
-    print("ADMIN IDS:", ADMIN_IDS)
-    print("DB PATH:", DB_PATH)
-    print("FILES DIR:", FILES_DIR)
+
+    print(
+        "PT MATERIALS BOT STARTING"
+    )
+
+    print(
+        "ADMIN IDS:",
+        ADMIN_IDS
+    )
+
+    print(
+        "DB PATH:",
+        DB_PATH
+    )
+
+    print(
+        "FILES DIR:",
+        FILES_DIR
+    )
+
     print("====================================")
 
     # Initialize DB
@@ -961,7 +1181,10 @@ def main():
 
     # /start
     application.add_handler(
-        CommandHandler("start", start)
+        CommandHandler(
+            "start",
+            start
+        )
     )
 
     # Files
@@ -984,9 +1207,13 @@ def main():
     )
 
     # Errors
-    application.add_error_handler(error_handler)
+    application.add_error_handler(
+        error_handler
+    )
 
-    print("BOT IS RUNNING...")
+    print(
+        "BOT IS RUNNING..."
+    )
 
     application.run_polling(
         drop_pending_updates=True
