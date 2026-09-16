@@ -15,105 +15,106 @@ ADMIN_IDS = [6448008082, 8791458947]
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
+# هيكل البيانات النظيف: كل مادة عبارة عن dictionary فيه type و components
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
-            "🦴 Anatomy I": {"has_lab": True},
-            "🧪 Biochemistry I": {"has_lab": False},
-            "🔬 Histology": {"has_lab": True},
-            "🫀 Physiology I": {"has_lab": True}
+            "🦴 Anatomy I": {"type": "subject", "lab": True},
+            "🧪 Biochemistry I": {"type": "subject", "lab": False},
+            "🔬 Histology": {"type": "subject", "lab": True},
+            "🫀 Physiology I": {"type": "subject", "lab": True}
         },
         "Semester 2": {
-            "🦴 Anatomy II": {"has_lab": True},
-            "🧪 Biochemistry II": {"has_lab": False},
-            "🫀 Physiology II": {"has_lab": True},
-            "🏃 Kinesiology I": {"has_lab": True},
-            "⚡ Biophysics": {"has_lab": True}
+            "🦴 Anatomy II": {"type": "subject", "lab": True},
+            "🧪 Biochemistry II": {"type": "subject", "lab": False},
+            "🫀 Physiology II": {"type": "subject", "lab": True},
+            "🏃 Kinesiology I": {"type": "subject", "lab": True},
+            "⚡ Biophysics": {"type": "subject", "lab": True}
         }
     },
     "🟠 Level 2": {
         "Semester 3": {
-            "🧠 Neuroanatomy": {"has_lab": True},
-            "🦾 Biomechanics II": {"has_lab": True},
-            "⚡ Electrotherapy I": {"has_lab": True},
-            "📋 Evaluation I": {"has_lab": True},
-            "🧠 Neurophysiology": {"has_lab": False},
-            "🏋️ Therapeutic Ex. I": {"has_lab": True}
+            "🧠 Neuroanatomy": {"type": "subject", "lab": True},
+            "🦾 Biomechanics II": {"type": "subject", "lab": True},
+            "⚡ Electrotherapy I": {"type": "subject", "lab": True},
+            "📋 Evaluation I": {"type": "subject", "lab": True},
+            "🧠 Neurophysiology": {"type": "subject", "lab": False},
+            "🏋️ Therapeutic Ex. I": {"type": "subject", "lab": True}
         },
         "Semester 4": {
-            "🦾 Biomechanics III": {"has_lab": True},
-            "🩺 Community Health": {"has_lab": False},
-            "📋 Evaluation II": {"has_lab": True},
-            "🫀 Exercise Physiology": {"has_lab": False},
-            "🔬 Pathology": {"has_lab": False},
-            "👐 Manual Therapy": {"has_lab": True},
-            "⚡ Electrotherapy II": {"has_lab": True},
-            "🦴 Anatomy IV": {"has_lab": True},
-            "⚖️ Legal & Ethics": {"has_lab": False}
+            "🦾 Biomechanics III": {"type": "subject", "lab": True},
+            "🩺 Community Health": {"type": "subject", "lab": False},
+            "📋 Evaluation II": {"type": "subject", "lab": True},
+            "🫀 Exercise Physiology": {"type": "subject", "lab": False},
+            "🔬 Pathology": {"type": "subject", "lab": False},
+            "👐 Manual Therapy": {"type": "subject", "lab": True},
+            "⚡ Electrotherapy II": {"type": "subject", "lab": True},
+            "🦴 Anatomy IV": {"type": "subject", "lab": True},
+            "⚖️ Legal & Ethics": {"type": "subject", "lab": False}
         }
     },
     "🟡 Level 3": {
         "Semester 5": {
-            "🦾 Biomechanics IV": {"has_lab": True},
-            "🌊 Hydrotherapy": {"has_lab": True},
-            "📊 Research & Statistics": {"has_lab": False},
-            "💼 Management & Decision": {"has_lab": False},
-            "🩺 Pathophysiology": {"has_lab": False},
-            "💊 Pharmacology": {"has_lab": False},
-            "♿ Rehabilitation": {"has_lab": False}
+            "🦾 Biomechanics IV": {"type": "subject", "lab": True},
+            "🌊 Hydrotherapy": {"type": "subject", "lab": True},
+            "📊 Research & Statistics": {"type": "subject", "lab": False},
+            "💼 Management & Decision": {"type": "subject", "lab": False},
+            "🩺 Pathophysiology": {"type": "subject", "lab": False},
+            "💊 Pharmacology": {"type": "subject", "lab": False},
+            "♿ Rehabilitation": {"type": "subject", "lab": False}
         }
     },
     "🟢 Tracks": {
         "🫀 Batna Track": {
-            "🩺 Clin. Med. Cardio": {"has_lab": False},
-            "🫁 Clin. Med. Chest & Internal": {"has_lab": False},
-            "👵 Clin. Practice Geriatrics": {"has_lab": True},
-            "🫀 Clin. Practice Cardio & Pulm.": {"has_lab": True},
-            "🦯 Geriatric Rehab": {"has_lab": True},
-            "🫁 P.T. Chest & Internal": {"has_lab": True},
-            "🫀 P.T. Cardio": {"has_lab": True},
-            "🥗 Nutrition": {"has_lab": False},
-            "🧠 Psych. for Handicapped": {"has_lab": False},
-            "🩻 Radiology": {"has_lab": False}
+            "🩺 Clin. Med. Cardio": {"type": "subject", "lab": False},
+            "🫁 Clin. Med. Chest & Internal": {"type": "subject", "lab": False},
+            "👵 Clin. Practice Geriatrics": {"type": "subject", "lab": True},
+            "🫀 Clin. Practice Cardio & Pulm.": {"type": "subject", "lab": True},
+            "🦯 Geriatric Rehab": {"type": "subject", "lab": True},
+            "🫁 P.T. Chest & Internal": {"type": "subject", "lab": True},
+            "🫀 P.T. Cardio": {"type": "subject", "lab": True},
+            "🥗 Nutrition": {"type": "subject", "lab": False},
+            "🧠 Psych. for Handicapped": {"type": "subject", "lab": False},
+            "🩻 Radiology": {"type": "subject", "lab": False}
         },
         "🤰 Gyna Track": {
-            "🪑 Ergonomics": {"has_lab": True},
-            "🩺 Clin. Practice Surgery": {"has_lab": True},
-            "🩹 P.T. Surgery": {"has_lab": True},
-            "👩‍⚕️ Clin. Practice Womens Health": {"has_lab": True},
-            "🤰 P.T. Womens Health": {"has_lab": True},
-            "🩺 Clin. Med. Womens Health": {"has_lab": False},
-            "📚 Evidence Based Practice": {"has_lab": False},
-            "🏥 General Surgery & ICU": {"has_lab": False}
+            "🪑 Ergonomics": {"type": "subject", "lab": True},
+            "🩺 Clin. Practice Surgery": {"type": "subject", "lab": True},
+            "🩹 P.T. Surgery": {"type": "subject", "lab": True},
+            "👩‍⚕️ Clin. Practice Womens Health": {"type": "subject", "lab": True},
+            "🤰 P.T. Womens Health": {"type": "subject", "lab": True},
+            "🩺 Clin. Med. Womens Health": {"type": "subject", "lab": False},
+            "📚 Evidence Based Practice": {"type": "subject", "lab": False},
+            "🏥 General Surgery & ICU": {"type": "subject", "lab": False}
         },
         "🦴 Ortho Track": {
-            "🩺 Clin. Med. Traumatology": {"has_lab": False},
-            "🦴 Clin. Med. Ortho Surgery": {"has_lab": False},
-            "📋 Physical Diagnosis": {"has_lab": True},
-            "🦴 P.T. Orthopedics": {"has_lab": True},
-            "🦿 Orthotics & Prosthetics": {"has_lab": True},
-            "🩻 Radiodiagnosis": {"has_lab": False},
-            "⚽ Sport P.T.": {"has_lab": True},
-            "🏥 Clin. Practice Ortho": {"has_lab": True}
+            "🩺 Clin. Med. Traumatology": {"type": "subject", "lab": False},
+            "🦴 Clin. Med. Ortho Surgery": {"type": "subject", "lab": False},
+            "📋 Physical Diagnosis": {"type": "subject", "lab": True},
+            "🦴 P.T. Orthopedics": {"type": "subject", "lab": True},
+            "🦿 Orthotics & Prosthetics": {"type": "subject", "lab": True},
+            "🩻 Radiodiagnosis": {"type": "subject", "lab": False},
+            "⚽ Sport P.T.": {"type": "subject", "lab": True},
+            "🏥 Clin. Practice Ortho": {"type": "subject", "lab": True}
         },
         "👶 Peds Track": {
-            "🩺 Clin. Med. Pediatrics": {"has_lab": False},
-            "👶 Clin. Practice Peds": {"has_lab": True},
-            "🧸 Motor Development": {"has_lab": True},
-            "👶 P.T. Pediatrics": {"has_lab": True},
-            "🏥 P.T. Pediatric Surgery": {"has_lab": True},
-            "🗣️ Speech Therapy": {"has_lab": False},
-            "🧩 Occupational Therapy": {"has_lab": False}
+            "🩺 Clin. Med. Pediatrics": {"type": "subject", "lab": False},
+            "👶 Clin. Practice Peds": {"type": "subject", "lab": True},
+            "🧸 Motor Development": {"type": "subject", "lab": True},
+            "👶 P.T. Pediatrics": {"type": "subject", "lab": True},
+            "🏥 P.T. Pediatric Surgery": {"type": "subject", "lab": True},
+            "🗣️ Speech Therapy": {"type": "subject", "lab": False},
+            "🧩 Occupational Therapy": {"type": "subject", "lab": False}
         },
         "🧠 Neuro Track": {
-            "🩺 Clin. Med. Neurology": {"has_lab": False},
-            "🧠 Clin. Practice Neuro": {"has_lab": True},
-            "🧠 P.T. Neurology": {"has_lab": True},
-            "🔪 P.T. Neurosurgery": {"has_lab": True},
-            "🏥 Neurosurgery": {"has_lab": False},
-            "🔬 Recent Neuro Rehab": {"has_lab": True},
-            "⚡ Electrodiagnosis": {"has_lab": True},
-            "🏃 Motor Learning": {"has_lab": False}
+            "🩺 Clin. Med. Neurology": {"type": "subject", "lab": False},
+            "🧠 Clin. Practice Neuro": {"type": "subject", "lab": True},
+            "🧠 P.T. Neurology": {"type": "subject", "lab": True},
+            "🔪 P.T. Neurosurgery": {"type": "subject", "lab": True},
+            "🏥 Neurosurgery": {"type": "subject", "lab": False},
+            "🔬 Recent Neuro Rehab": {"type": "subject", "lab": True},
+            "⚡ Electrodiagnosis": {"type": "subject", "lab": True},
+            "🏃 Motor Learning": {"type": "subject", "lab": False}
         }
     }
 }
@@ -140,23 +141,22 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
-    # 1. بناء الأزرار ومنع ظهور has_lab تماماً
+    # 1. إنشاء الأزرار بناءً على المستوى أو المادة
     if isinstance(current_node, dict):
-        if "has_lab" in current_node:
-            if current_node["has_lab"]:
+        if current_node.get("type") == "subject":
+            if current_node.get("lab"):
                 keyboard.append([KeyboardButton("Theoretical"), KeyboardButton("Practical")])
             else:
                 keyboard.append([KeyboardButton("Theoretical")])
         else:
-            # تصفية استثنائية لأي مفتاح برمجي
-            keys = [k for k in current_node.keys() if k != "has_lab"]
+            keys = list(current_node.keys())
             for i in range(0, len(keys), 2):
                 row = [KeyboardButton(keys[i])]
                 if i + 1 < len(keys):
                     row.append(KeyboardButton(keys[i+1]))
                 keyboard.append(row)
 
-    # 2. إظهار الملفات كأزرار تحت
+    # 2. عرض الملفات المرفوعة كـ أزرار تفاعلية فقط
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
 
@@ -165,7 +165,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
             keyboard.append([KeyboardButton(f"{icon} {f['name']}")])
 
-    # 3. تحكم الملاحة
+    # 3. أزرار التحكم والرجوع
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -179,10 +179,8 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
-    if files:
-        msg_text += "\n\n📚 **Click any button below to download the file:**"
-    else:
+    msg_text = f"{text}\n\n📍 **Current Location:** `{path_key}`"
+    if not files:
         msg_text += "\n\n📂 No files uploaded in this location yet."
 
     if is_admin(update.effective_user.id):
@@ -242,7 +240,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_menu(update, context, "Updated list:")
         return
 
-    # التفاعل مع الملفات
+    # التفاعل مع الضغط على أي زرار ملف مفرد
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
     for f in files:
@@ -260,7 +258,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     matched_key = None
     if isinstance(current_node, dict):
         for key in current_node.keys():
-            if key.strip() == text and key != "has_lab":
+            if key.strip() == text and key not in ["type", "lab"]:
                 matched_key = key
                 break
 
@@ -269,9 +267,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         path.append(matched_key)
         context.user_data["path"] = path
 
-        if isinstance(item, dict) and "has_lab" in item:
+        if isinstance(item, dict) and item.get("type") == "subject":
             keyboard = []
-            if item["has_lab"]:
+            if item.get("lab"):
                 keyboard.append([KeyboardButton("Theoretical"), KeyboardButton("Practical")])
             else:
                 keyboard.append([KeyboardButton("Theoretical")])
@@ -325,8 +323,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         "type": file_type
     })
 
-    await update.message.reply_text(f"✅ Saved `{file_name}`!", parse_mode="Markdown")
-    await send_menu(update, context, "Updated Folder:")
+    await update.message.reply_text(f"✅ Saved `{file_name}` to `{path_key}`!", parse_mode="Markdown")
+    await send_menu(update, context, "Updated Folder Status:")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -337,6 +335,6 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(media_filter, handle_media_upload))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🤖 Bot running cleanly...")
+    print("🤖 Bot running smoothly...")
     app.run_polling()
-        
+    
