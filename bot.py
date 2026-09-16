@@ -22,7 +22,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 ADMIN_IDS = [
     6448008082,
-    8791458947,
+    8791458947, 8881717605
 ]
 
 DB_PATH = os.getenv("DB_PATH", "/data/bot_database.db")
