@@ -14,151 +14,506 @@ from telegram.ext import (
 )
 
 
-# =========================================================
+# =========================
 # SETTINGS
-# =========================================================
+# =========================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-ADMIN_IDS = [
+DB_PATH = os.getenv("DB_PATH", "/data/bot_database.db")
+STORAGE_ROOT = Path(os.getenv("STORAGE_ROOT", "/data/storage"))
+
+ADMIN_IDS = {
     6448008082,
     8791458947, 8881717605
-]
-
-DB_PATH = os.getenv("DB_PATH", "/data/bot_database.db")
-FILES_DIR = Path("/data/files")
-
-
-if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN is missing from Railway Variables.")
-
-
-FILES_DIR.mkdir(parents=True, exist_ok=True)
-Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-
-
-# =========================================================
-# STRUCTURE
-# =========================================================
-
-STRUCTURE = {
-    "🔴 Level 1": {
-        "Semester 1": {
-            "🦴 Anatomy I": {"Lab": True},
-            "🧪 Biochemistry I": {"Lab": False},
-            "🔬 Histology": {"Lab": True},
-            "🫀 Physiology I": {"Lab": True},
-        },
-        "Semester 2": {
-            "🦴 Anatomy II": {"Lab": True},
-            "🧪 Biochemistry II": {"Lab": False},
-            "🫀 Physiology II": {"Lab": True},
-            "🏃 Kinesiology I": {"Lab": True},
-            "⚡ Biophysics": {"Lab": True},
-        },
-    },
-
-    "🟠 Level 2": {
-        "Semester 3": {
-            "🧠 Neuroanatomy": {"Lab": True},
-            "🦾 Biomechanics II": {"Lab": True},
-            "⚡ Electrotherapy I": {"Lab": True},
-            "📋 Evaluation I": {"Lab": True},
-            "🧠 Neurophysiology": {"Lab": False},
-            "🏋️ Therapeutic Ex. I": {"Lab": True},
-        },
-        "Semester 4": {
-            "🦾 Biomechanics III": {"Lab": True},
-            "🩺 Community Health": {"Lab": False},
-            "📋 Evaluation II": {"Lab": True},
-            "🫀 Exercise Physiology": {"Lab": False},
-            "🔬 Pathology": {"Lab": False},
-            "👐 Manual Therapy": {"Lab": True},
-            "⚡ Electrotherapy II": {"Lab": True},
-            "🦴 Anatomy IV": {"Lab": True},
-            "⚖️ Legal & Ethics": {"Lab": False},
-        },
-    },
-
-    "🟡 Level 3": {
-        "Semester 5": {
-            "🦾 Biomechanics IV": {"Lab": True},
-            "🌊 Hydrotherapy": {"Lab": True},
-            "📊 Research & Statistics": {"Lab": False},
-            "💼 Management & Decision": {"Lab": False},
-            "🩺 Pathophysiology": {"Lab": False},
-            "💊 Pharmacology": {"Lab": False},
-            "♿ Rehabilitation": {"Lab": False},
-        },
-    },
-
-    "🟢 Tracks": {
-        "🫀 Batna Track": {
-            "🩺 Clin. Med. Cardio": {},
-            "🫁 Clin. Med. Chest & Internal": {},
-            "👵 Clin. Practice Geriatrics": {},
-            "🫀 Clin. Practice Cardio & Pulm.": {},
-            "🦯 Geriatric Rehab": {},
-            "🫁 P.T. Chest & Internal": {},
-            "🫀 P.T. Cardio": {},
-            "🥗 Nutrition": {},
-            "🧠 Psych. for Handicapped": {},
-            "🩻 Radiology": {},
-        },
-
-        "🤰 Gyna Track": {
-            "🪑 Ergonomics": {},
-            "🩺 Clin. Practice Surgery": {},
-            "🩹 P.T. Surgery": {},
-            "👩‍⚕️ Clin. Practice Womens Health": {},
-            "🤰 P.T. Womens Health": {},
-            "🩺 Clin. Med. Womens Health": {},
-            "📚 Evidence Based Practice": {},
-            "🏥 General Surgery & ICU": {},
-        },
-
-        "🦴 Ortho Track": {
-            "🩺 Clin. Med. Traumatology": {},
-            "🦴 Clin. Med. Ortho Surgery": {},
-            "📋 Physical Diagnosis": {},
-            "🦴 P.T. Orthopedics": {},
-            "🦿 Orthotics & Prosthetics": {},
-            "🩻 Radiodiagnosis": {},
-            "⚽ Sport P.T.": {},
-            "🏥 Clin. Practice Ortho": {},
-        },
-
-        "👶 Peds Track": {
-            "🩺 Clin. Med. Pediatrics": {},
-            "👶 Clin. Practice Peds": {},
-            "🧸 Motor Development": {},
-            "👶 P.T. Pediatrics": {},
-            "🏥 P.T. Pediatric Surgery": {},
-            "🗣️ Speech Therapy": {},
-            "🧩 Occupational Therapy": {},
-        },
-
-        "🧠 Neuro Track": {
-            "🩺 Clin. Med. Neurology": {},
-            "🧠 Clin. Practice Neuro": {},
-            "🧠 P.T. Neurology": {},
-            "🔪 P.T. Neurosurgery": {},
-            "🏥 Neurosurgery": {},
-            "🔬 Recent Neuro Rehab": {},
-            "⚡ Electrodiagnosis": {},
-            "🏃 Motor Learning": {},
-        },
-    },
 }
 
 
-# =========================================================
+THEORETICAL = "📚 Theoretical"
+PRACTICAL = "🩺 Practical"
+
+BACK = "⬅️ Back"
+HOME = "🏠 Home"
+
+DELETE_FILE = "🗑️ Delete File"
+CANCEL_DELETE = "❌ Cancel Delete"
+
+
+# =========================
+# STRUCTURE
+# =========================
+
+STRUCTURE = {
+
+    # =====================
+    # LEVEL 1
+    # =====================
+
+    "🔴 Level 1": {
+
+        "Semester 1": {
+            "🦴 Anatomy I": {
+                "type": "subject",
+                "lab": True
+            },
+            "🧪 Biochemistry I": {
+                "type": "subject",
+                "lab": False
+            },
+            "🔬 Histology": {
+                "type": "subject",
+                "lab": True
+            },
+            "🫀 Physiology I": {
+                "type": "subject",
+                "lab": True
+            }
+        },
+
+        "Semester 2": {
+            "🦴 Anatomy II": {
+                "type": "subject",
+                "lab": True
+            },
+            "🧪 Biochemistry II": {
+                "type": "subject",
+                "lab": False
+            },
+            "🫀 Physiology II": {
+                "type": "subject",
+                "lab": True
+            },
+            "🏃 Kinesiology I": {
+                "type": "subject",
+                "lab": True
+            },
+            "⚡ Biophysics": {
+                "type": "subject",
+                "lab": True
+            }
+        }
+    },
+
+
+    # =====================
+    # LEVEL 2
+    # =====================
+
+    "🟠 Level 2": {
+
+        "Semester 3": {
+            "🧠 Neuroanatomy": {
+                "type": "subject",
+                "lab": True
+            },
+            "🦾 Biomechanics II": {
+                "type": "subject",
+                "lab": False
+            },
+            "⚡ Electrotherapy I": {
+                "type": "subject",
+                "lab": True
+            },
+            "📋 Evaluation I": {
+                "type": "subject",
+                "lab": True
+            },
+            "🧠 Neurophysiology": {
+                "type": "subject",
+                "lab": False
+            },
+            "🏋️ Therapeutic Ex. I": {
+                "type": "subject",
+                "lab": True
+            }
+        },
+
+        "Semester 4": {
+            "🦾 Biomechanics III": {
+                "type": "subject",
+                "lab": True
+            },
+            "🩺 Community Health": {
+                "type": "subject",
+                "lab": False
+            },
+            "📋 Evaluation II": {
+                "type": "subject",
+                "lab": True
+            },
+            "🫀 Exercise Physiology": {
+                "type": "subject",
+                "lab": False
+            },
+            "🔬 Pathology": {
+                "type": "subject",
+                "lab": False
+            },
+            "👐 Manual Therapy": {
+                "type": "subject",
+                "lab": True
+            },
+            "⚡ Electrotherapy II": {
+                "type": "subject",
+                "lab": True
+            },
+            "🦴 Anatomy IV": {
+                "type": "subject",
+                "lab": True
+            },
+            "⚖️ Legal & Ethics": {
+                "type": "subject",
+                "lab": False
+            }
+        }
+    },
+
+
+    # =====================
+    # LEVEL 3
+    # =====================
+
+    "🟡 Level 3": {
+
+        "Semester 5": {
+            "🦾 Biomechanics IV": {
+                "type": "subject",
+                "lab": True
+            },
+            "🌊 Hydrotherapy": {
+                "type": "subject",
+                "lab": True
+            },
+            "📊 Research & Statistics": {
+                "type": "subject",
+                "lab": False
+            },
+            "💼 Management & Decision": {
+                "type": "subject",
+                "lab": False
+            },
+            "🩺 Pathophysiology": {
+                "type": "subject",
+                "lab": False
+            },
+            "💊 Pharmacology": {
+                "type": "subject",
+                "lab": False
+            },
+            "♿ Rehabilitation": {
+                "type": "subject",
+                "lab": False
+            }
+        }
+    },
+
+
+    # =====================
+    # TRACKS
+    # =====================
+
+    "🟢 Tracks": {
+
+        # =================
+        # 1. Batna
+        # =================
+
+        "Batna": {
+
+            'PH pulmonary "CAPU324"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Medicine pulmonary "MED.314PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Geriatric rehabilitation "CAPU326"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'PH cardio "CAPU322"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Medicine cardio "MED.312PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Hospital "CAPU312+CAPU314"': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            },
+
+            'Nutrition "BIOC312PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Radiology "RAD.312PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Psychology "PSYCH 312PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            }
+        },
+
+
+        # =================
+        # 2. Gyna
+        # =================
+
+        "Gyna": {
+
+            'First Aid "FIRS 411E"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Ergonomics "BIOM 411"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Ph Surgery "PT421 / SURG"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'General Surgery "SURG.411"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Ph Gyna "GYPD 421PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Med Gyna "MED 411PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Evidence "PT.441"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Hospital Surgery "SURG PT411"': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            },
+
+            'Hospital Gyna "GYPD.411"': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            }
+        },
+
+
+        # =================
+        # 3. Ortho
+        # =================
+
+        "Ortho": {
+
+            'PH "MUSK424"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Orthoses & Prosthesis': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Examination "MUSK422"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Sport Physical Therapy': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Hospital "MUSK412"': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            },
+
+            'Surgery "SURGPT412"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Medicine "MED412PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Radiology "RAD.412PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            }
+        },
+
+
+        # =================
+        # 4. Neuro
+        # =================
+
+        "Neuro": {
+
+            'Topic "NEUR526"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Motor "PT541"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'medicine "MED512PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'spinal "NEUR524"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Neurosurgery "SURG512PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'PH "NEUR.522"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'EMG "NEUR.525"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Hospital "NEUR512" + Spinal sec': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            }
+        },
+
+
+        # =================
+        # 5. Peds
+        # =================
+
+        "Peds": {
+
+            'Hospital "GYPD 511"': {
+                "type": "subject",
+                "lecture": False,
+                "lab": True
+            },
+
+            'Ph "GYPD 525"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Surgery "GYPD 527"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Motor development "GYPD 521"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": True
+            },
+
+            'Speech Therapy "GYPD 529"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Occupational Therapy "OT.511"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            },
+
+            'Medicine "MED.511PT"': {
+                "type": "subject",
+                "lecture": True,
+                "lab": False
+            }
+        }
+    }
+}
+
+
+# =========================
 # DATABASE
-# =========================================================
+# =========================
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS files (
@@ -173,60 +528,54 @@ def get_db():
     """)
 
     conn.commit()
-    return conn
+    conn.close()
 
 
-# =========================================================
+# =========================
 # HELPERS
-# =========================================================
+# =========================
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 
 def get_path_key(path):
-    if not path:
-        return "Home"
-
     return " / ".join(path)
 
 
 def sanitize_filename(filename):
     filename = filename.strip()
-
-    filename = re.sub(r'[\\/:*?"<>|]', "_", filename)
-
-    if not filename:
-        filename = "file"
-
-    return filename
+    filename = re.sub(r'[<>:"/\\|?*]', "_", filename)
+    filename = filename.rstrip(". ")
+    return filename or "file"
 
 
 def get_current_node(path):
     node = STRUCTURE
 
     for part in path:
-        if part in ("Theoretical", "Practical"):
+
+        # Theoretical / Practical are navigation sections,
+        # not keys inside STRUCTURE.
+        if part in (THEORETICAL, PRACTICAL):
             continue
 
-        if isinstance(node, dict) and part in node:
-            node = node[part]
-        else:
+        if not isinstance(node, dict):
             return None
+
+        if part not in node:
+            return None
+
+        node = node[part]
 
     return node
 
 
 def get_storage_directory(path):
-    directory = FILES_DIR
+    directory = STORAGE_ROOT
 
     for part in path:
-        safe_part = re.sub(r'[\\/:*?"<>|]', "_", part)
-        safe_part = safe_part.strip()
-
-        if not safe_part:
-            safe_part = "Unknown"
-
+        safe_part = sanitize_filename(part)
         directory = directory / safe_part
 
     directory.mkdir(parents=True, exist_ok=True)
@@ -241,12 +590,12 @@ def get_files_in_path(path):
 
     rows = conn.execute(
         """
-        SELECT id, name, file_path, file_type
+        SELECT *
         FROM files
         WHERE path_key = ?
-        ORDER BY name COLLATE NOCASE
+        ORDER BY id ASC
         """,
-        (path_key,),
+        (path_key,)
     ).fetchall()
 
     conn.close()
@@ -254,971 +603,305 @@ def get_files_in_path(path):
     return rows
 
 
-# =========================================================
-# MENU
-# =========================================================
-
-async def send_menu(update, context):
-    path = context.user_data.get("path", [])
-
-    node = get_current_node(path)
-
-    keyboard = []
-
-    # ---------------------------------------------
-    # Current location
-    # ---------------------------------------------
-
-    if path:
-        title = "📍 " + " / ".join(path)
-    else:
-        title = "🏠 Home"
-
-    # ---------------------------------------------
-    # Navigation - TWO COLUMNS
-    # ---------------------------------------------
-
-    if isinstance(node, dict):
-
-        buttons = list(node.keys())
-
-        for i in range(0, len(buttons), 2):
-            row = buttons[i:i + 2]
-            keyboard.append(row)
-
-    # ---------------------------------------------
-    # Theoretical / Practical
-    # ---------------------------------------------
-
-    if path and len(path) >= 3:
-
-        subject_node = get_current_node(path)
-
-        if isinstance(subject_node, dict):
-            if subject_node.get("Lab") is True:
-                keyboard.append(
-                    ["📘 Theoretical", "🧪 Practical"]
-                )
-
-    # ---------------------------------------------
-    # Files
-    # ---------------------------------------------
-
-    files = get_files_in_path(path)
-
-    if files:
-
-        keyboard.append(["📂 Files"])
-
-        for row in files:
-            keyboard.append(
-                [f"📄 {row['name']}"]
-            )
-
-    # ---------------------------------------------
-    # Admin delete
-    # ---------------------------------------------
-
-    if is_admin(update.effective_user.id) and files:
-
-        keyboard.append(
-            ["🗑️ Delete File"]
-        )
-
-    # ---------------------------------------------
-    # Back
-    # ---------------------------------------------
-
-    if path:
-
-        keyboard.append(
-            ["⬅️ Back"]
-        )
-
-    keyboard.append(
-        ["🏠 Home"]
-    )
-
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True
-    )
-
-    text = f"{title}\n\n"
-
-    if files:
-
-        text += (
-            f"📁 Files in this location: "
-            f"{len(files)}\n"
-        )
-
-    else:
-
-        text += (
-            "📁 No files in this location.\n"
-        )
-
-    if is_admin(update.effective_user.id):
-
-        text += "\n👑 Admin mode is ON."
-
-    await update.message.reply_text(
-        text,
-        reply_markup=reply_markup
-    )
-
-
-# =========================================================
-# START
-# =========================================================
-
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    context.user_data["path"] = []
-
-    context.user_data["delete_mode"] = False
-
-    await update.message.reply_text(
-        "👋 Welcome to PT Materials Bot"
-    )
-
-    await send_menu(
-        update,
-        context
-    )
-
-
-# =========================================================
-# SAVE FILE
-# =========================================================
-
-async def handle_media_upload(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    print("====================================")
-    print(
-        "DEBUG USER ID:",
-        update.effective_user.id
-    )
-    print(
-        "DEBUG ADMIN IDS:",
-        ADMIN_IDS
-    )
-    print("====================================")
-
-    # ---------------------------------------------
-    # Admin check
-    # ---------------------------------------------
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "❌ You are not an admin."
-        )
-
-        return
-
-    path = context.user_data.get(
-        "path",
-        []
-    )
-
-    path_key = get_path_key(path)
-
-    # ---------------------------------------------
-    # Detect file
-    # ---------------------------------------------
-
-    telegram_file = None
-    file_name = None
-    file_type = None
-
-    # Document / PDF / TXT / etc.
-    if update.message.document:
-
-        telegram_file = await (
-            update.message.document.get_file()
-        )
-
-        file_name = (
-            update.message.document.file_name
-        )
-
-        if not file_name:
-
-            file_name = "document"
-
-        file_type = "document"
-
-    # Photo
-    elif update.message.photo:
-
-        telegram_file = await (
-            update.message.photo[-1].get_file()
-        )
-
-        file_name = (
-            update.message.caption
-            if update.message.caption
-            else (
-                f"photo_"
-                f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                f".jpg"
-            )
-        )
-
-        file_type = "photo"
-
-    # Audio
-    elif update.message.audio:
-
-        telegram_file = await (
-            update.message.audio.get_file()
-        )
-
-        file_name = (
-            update.message.audio.file_name
-        )
-
-        if not file_name:
-
-            file_name = "audio"
-
-        file_type = "audio"
-
-    # Voice
-    elif update.message.voice:
-
-        telegram_file = await (
-            update.message.voice.get_file()
-        )
-
-        file_name = (
-            f"voice_"
-            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            f".ogg"
-        )
-
-        file_type = "voice"
-
-    else:
-
-        return
-
-    # ---------------------------------------------
-    # Clean filename
-    # ---------------------------------------------
-
-    file_name = sanitize_filename(
-        file_name
-    )
-
-    # ---------------------------------------------
-    # Duplicate check
-    # ---------------------------------------------
-
-    conn = get_db()
-
-    existing = conn.execute(
-        """
-        SELECT id
-        FROM files
-        WHERE path_key = ? AND name = ?
-        """,
-        (
-            path_key,
-            file_name
-        ),
-    ).fetchone()
-
-    conn.close()
-
-    if existing:
-
-        await update.message.reply_text(
-            f"❌ الملف موجود بالفعل في المكان ده:\n\n"
-            f"📄 {file_name}\n\n"
-            f"📍 {path_key}"
-        )
-
-        return
-
-    # ---------------------------------------------
-    # Storage directory
-    # ---------------------------------------------
-
-    storage_dir = get_storage_directory(
-        path
-    )
-
-    file_path = (
-        storage_dir / file_name
-    )
-
-    # ---------------------------------------------
-    # Avoid accidental overwrite
-    # ---------------------------------------------
-
-    if file_path.exists():
-
-        await update.message.reply_text(
-            "❌ الملف موجود بالفعل على الـ Volume."
-        )
-
-        return
-
-    # ---------------------------------------------
-    # Download
-    # ---------------------------------------------
-
-    try:
-
-        await telegram_file.download_to_drive(
-            custom_path=str(file_path)
-        )
-
-    except Exception as e:
-
-        print(
-            "DOWNLOAD ERROR:",
-            repr(e)
-        )
-
-        await update.message.reply_text(
-            "❌ حصل خطأ أثناء حفظ الملف."
-        )
-
-        return
-
-    # ---------------------------------------------
-    # Database
-    # ---------------------------------------------
-
-    conn = get_db()
-
-    try:
-
-        conn.execute(
-            """
-            INSERT INTO files
-            (
-                path_key,
-                name,
-                file_path,
-                file_type,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                path_key,
-                file_name,
-                str(file_path),
-                file_type,
-                datetime.now().isoformat(),
-            ),
-        )
-
-        conn.commit()
-
-    except sqlite3.IntegrityError:
-
-        conn.close()
-
-        if file_path.exists():
-
-            file_path.unlink()
-
-        await update.message.reply_text(
-            "❌ الملف موجود بالفعل في نفس المكان."
-        )
-
-        return
-
-    conn.close()
-
-    # ---------------------------------------------
-    # Success
-    # ---------------------------------------------
-
-    await update.message.reply_text(
-        f"✅ تم حفظ الملف بنجاح!\n\n"
-        f"📄 {file_name}\n"
-        f"📍 المكان: {path_key}\n"
-        f"💾 Storage: Railway Volume"
-    )
-
-    await send_menu(
-        update,
-        context
-    )
-
-
-# =========================================================
-# SEND SAVED FILE
-# =========================================================
-
-async def send_saved_file(
-    update,
-    row
-):
-
-    file_path = Path(
-        row["file_path"]
-    )
-
-    if not file_path.exists():
-
-        await update.message.reply_text(
-            "❌ الملف مش موجود على الـ Volume."
-        )
-
-        return
-
-    try:
-
-        if row["file_type"] == "photo":
-
-            with open(
-                file_path,
-                "rb"
-            ) as f:
-
-                await update.message.reply_photo(
-                    photo=f,
-                    caption=row["name"]
-                )
-
-        elif row["file_type"] == "audio":
-
-            with open(
-                file_path,
-                "rb"
-            ) as f:
-
-                await update.message.reply_audio(
-                    audio=f,
-                    caption=row["name"]
-                )
-
-        elif row["file_type"] == "voice":
-
-            with open(
-                file_path,
-                "rb"
-            ) as f:
-
-                await update.message.reply_voice(
-                    voice=f
-                )
-
-        else:
-
-            with open(
-                file_path,
-                "rb"
-            ) as f:
-
-                await update.message.reply_document(
-                    document=f,
-                    caption=row["name"]
-                )
-
-    except Exception as e:
-
-        print(
-            "SEND FILE ERROR:",
-            repr(e)
-        )
-
-        await update.message.reply_text(
-            "❌ حصل خطأ أثناء إرسال الملف."
-        )
-
-
-# =========================================================
-# DELETE FILE
-# =========================================================
-
-async def delete_file_record(
-    update,
-    context,
-    file_name
-):
-
-    path = context.user_data.get(
-        "path",
-        []
-    )
-
+def get_file_by_name(path, filename):
     path_key = get_path_key(path)
 
     conn = get_db()
 
     row = conn.execute(
         """
-        SELECT id, file_path
+        SELECT *
         FROM files
         WHERE path_key = ? AND name = ?
         """,
-        (
-            path_key,
-            file_name
-        ),
+        (path_key, filename)
     ).fetchone()
-
-    if not row:
-
-        conn.close()
-
-        await update.message.reply_text(
-            "❌ الملف مش موجود."
-        )
-
-        return
-
-    file_path = Path(
-        row["file_path"]
-    )
-
-    # Delete from DB
-    conn.execute(
-        """
-        DELETE FROM files
-        WHERE id = ?
-        """,
-        (
-            row["id"],
-        )
-    )
-
-    conn.commit()
 
     conn.close()
 
-    # Delete physical file
-    if file_path.exists():
-
-        try:
-
-            file_path.unlink()
-
-        except Exception as e:
-
-            print(
-                "DELETE PHYSICAL FILE ERROR:",
-                repr(e)
-            )
-
-    await update.message.reply_text(
-        f"🗑️ تم حذف الملف:\n\n"
-        f"📄 {file_name}\n"
-        f"📍 {path_key}"
-    )
+    return row
 
 
-# =========================================================
-# MESSAGE HANDLER
-# =========================================================
+# =========================
+# MENU
+# =========================
 
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
+async def send_menu(update, context, path=None, delete_mode=False):
 
-    text = update.message.text
+    if path is None:
+        path = context.user_data.get("path", [])
 
-    if not text:
+    context.user_data["path"] = path
+    context.user_data["delete_mode"] = delete_mode
 
+    node = get_current_node(path)
+
+    if node is None:
+        await update.message.reply_text("❌ Invalid location.")
         return
 
-    path = context.user_data.get(
-        "path",
-        []
-    )
+    buttons = []
 
-    # =====================================================
-    # HOME
-    # =====================================================
-
-    if text == "🏠 Home":
-
-        context.user_data["path"] = []
-
-        context.user_data["delete_mode"] = False
-
-        await send_menu(
-            update,
-            context
-        )
-
-        return
-
-    # =====================================================
-    # BACK
-    # =====================================================
-
-    if text == "⬅️ Back":
-
-        if path:
-
-            path.pop()
-
-        context.user_data["path"] = path
-
-        context.user_data["delete_mode"] = False
-
-        await send_menu(
-            update,
-            context
-        )
-
-        return
-
-    # =====================================================
+    # =====================
     # DELETE MODE
-    # =====================================================
+    # =====================
 
-    if text == "🗑️ Delete File":
+    if delete_mode:
 
-        if not is_admin(
-            update.effective_user.id
-        ):
-
-            await update.message.reply_text(
-                "❌ Admin only."
-            )
-
-            return
-
-        files = get_files_in_path(
-            path
-        )
+        files = get_files_in_path(path)
 
         if not files:
-
-            await update.message.reply_text(
-                "📁 مفيش ملفات في المكان ده."
-            )
-
+            context.user_data["delete_mode"] = False
+            await send_menu(update, context, path, False)
             return
 
-        context.user_data["delete_mode"] = True
+        for file in files:
+            buttons.append([file["name"]])
 
-        keyboard = []
-
-        for row in files:
-
-            keyboard.append(
-                [f"🗑️ {row['name']}"]
-            )
-
-        keyboard.append(
-            ["⬅️ Cancel"]
-        )
+        buttons.append([CANCEL_DELETE])
 
         await update.message.reply_text(
-            "🗑️ اختار الملف اللي عايز تحذفه:",
+            "🗑️ Choose the file you want to delete:",
             reply_markup=ReplyKeyboardMarkup(
-                keyboard,
+                buttons,
                 resize_keyboard=True
             )
         )
 
         return
 
-    # =====================================================
-    # CANCEL DELETE
-    # =====================================================
 
-    if text == "⬅️ Cancel":
+    # =====================
+    # NORMAL NAVIGATION
+    # =====================
 
-        context.user_data["delete_mode"] = False
+    # Subject node
+    if isinstance(node, dict) and node.get("type") == "subject":
 
-        await send_menu(
-            update,
-            context
-        )
+        # For old subjects:
+        # if lecture is not explicitly defined,
+        # treat it as True.
+        lecture = node.get("lecture", True)
+        lab = node.get("lab", False)
 
-        return
+        subject_buttons = []
 
-    # =====================================================
-    # DELETE SELECTED FILE
-    # =====================================================
+        if lecture:
+            subject_buttons.append(THEORETICAL)
 
-    if context.user_data.get(
-        "delete_mode"
-    ):
+        if lab:
+            subject_buttons.append(PRACTICAL)
 
-        if not is_admin(
-            update.effective_user.id
-        ):
+        if len(subject_buttons) == 2:
+            buttons.append([
+                subject_buttons[0],
+                subject_buttons[1]
+            ])
 
-            context.user_data["delete_mode"] = False
+        elif len(subject_buttons) == 1:
+            buttons.append([subject_buttons[0]])
 
-            await update.message.reply_text(
-                "❌ Admin only."
-            )
+    else:
 
-            return
+        # Normal navigation
+        if isinstance(node, dict):
 
-        if text.startswith("🗑️ "):
+            navigation_buttons = []
 
-            file_name = text[3:].strip()
+            for name, value in node.items():
 
-            context.user_data["delete_mode"] = False
+                if isinstance(value, dict) and value.get("type") == "subject":
+                    navigation_buttons.append(name)
 
-            await delete_file_record(
-                update,
-                context,
-                file_name
-            )
+                elif isinstance(value, dict):
+                    navigation_buttons.append(name)
 
-            await send_menu(
-                update,
-                context
-            )
+            # Two columns
+            for i in range(0, len(navigation_buttons), 2):
 
-            return
+                row = navigation_buttons[i:i + 2]
 
-    # =====================================================
-    # FILE BUTTON
-    # =====================================================
+                buttons.append(row)
 
-    if text.startswith("📄 "):
+    # =====================
+    # FILES
+    # =====================
 
-        file_name = text[3:].strip()
+    files = get_files_in_path(path)
 
-        path_key = get_path_key(
-            path
-        )
+    for file in files:
+        buttons.append([file["name"]])
 
-        conn = get_db()
+    # =====================
+    # ADMIN DELETE BUTTON
+    # =====================
 
-        row = conn.execute(
-            """
-            SELECT id, name, file_path, file_type
-            FROM files
-            WHERE path_key = ? AND name = ?
-            """,
-            (
-                path_key,
-                file_name
-            ),
-        ).fetchone()
+    if is_admin(update.effective_user.id) and files:
+        buttons.append([DELETE_FILE])
 
-        conn.close()
+    # =====================
+    # BACK / HOME
+    # =====================
 
-        if not row:
+    if path:
+        buttons.append([BACK, HOME])
 
-            await update.message.reply_text(
-                "❌ الملف مش موجود."
-            )
+    # =====================
+    # HOME PAGE
+    # =====================
 
-            return
-
-        await send_saved_file(
-            update,
-            row
-        )
-
-        return
-
-    # =====================================================
-    # FILES BUTTON
-    # =====================================================
-
-    if text == "📂 Files":
-
-        files = get_files_in_path(
-            path
-        )
-
-        if not files:
-
-            await update.message.reply_text(
-                "📁 مفيش ملفات هنا."
-            )
-
-            return
-
-        message = (
-            "📂 الملفات الموجودة:\n\n"
-        )
-
-        for index, row in enumerate(
-            files,
-            start=1
-        ):
-
-            message += (
-                f"{index}. "
-                f"{row['name']}\n"
-            )
-
-        await update.message.reply_text(
-            message
-        )
-
-        return
-
-    # =====================================================
-    # THEORETICAL / PRACTICAL
-    # =====================================================
-
-    if text in (
-        "📘 Theoretical",
-        "🧪 Practical"
-    ):
-
-        context.user_data["path"] = (
-            path + [text]
-        )
-
-        context.user_data["delete_mode"] = False
-
-        await send_menu(
-            update,
-            context
-        )
-
-        return
-
-    # =====================================================
-    # NAVIGATION
-    # =====================================================
-
-    node = get_current_node(
-        path
-    )
-
-    if isinstance(node, dict):
-
-        if text in node:
-
-            context.user_data["path"] = (
-                path + [text]
-            )
-
-            context.user_data["delete_mode"] = False
-
-            await send_menu(
-                update,
-                context
-            )
-
-            return
-
-    # =====================================================
-    # UNKNOWN
-    # =====================================================
+    if not path:
+        # No Home button on initial Home page.
+        pass
 
     await update.message.reply_text(
-        "❓ اختار من الأزرار الموجودة."
+        "📚 PT Materials\n\n"
+        + ("📍 " + get_path_key(path) if path else "🏠 Home"),
+        reply_markup=ReplyKeyboardMarkup(
+            buttons,
+            resize_keyboard=True
+        )
     )
 
 
-# =========================================================
-# ERROR HANDLER
-# =========================================================
+# =========================
+# START
+# =========================
 
-async def error_handler(
-    update,
-    context
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    context.user_data["path"] = []
+    context.user_data["delete_mode"] = False
+
+    await update.message.reply_text(
+        "👋 Welcome to PT Materials Bot!"
+    )
+
+    await send_menu(
+        update,
+        context,
+        []
+    )
+
+
+# =========================
+# SEND SAVED FILE
+# =========================
+
+async def send_saved_file(update, file):
+
+    file_path = file["file_path"]
+    file_type = file["file_type"]
+
+    if not os.path.exists(file_path):
+        await update.message.reply_text(
+            "❌ This file is no longer available."
+        )
+        return
+
+    with open(file_path, "rb") as f:
+
+        if file_type == "document":
+            await update.message.reply_document(
+                document=f,
+                filename=file["name"]
+            )
+
+        elif file_type == "photo":
+            await update.message.reply_photo(
+                photo=f
+            )
+
+        elif file_type == "audio":
+            await update.message.reply_audio(
+                audio=f,
+                filename=file["name"]
+            )
+
+        elif file_type == "voice":
+            await update.message.reply_voice(
+                voice=f
+            )
+
+
+# =========================
+# MEDIA UPLOAD
+# =========================
+
+async def handle_media_upload(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
 ):
 
-    print(
-        "BOT ERROR:",
-        repr(context.error)
-    )
+    user_id = update.effective_user.id
 
-
-# =========================================================
-# MAIN
-# =========================================================
-
-def main():
-
-    print("====================================")
-
-    print(
-        "PT MATERIALS BOT STARTING"
-    )
-
-    print(
-        "ADMIN IDS:",
-        ADMIN_IDS
-    )
-
-    print(
-        "DB PATH:",
-        DB_PATH
-    )
-
-    print(
-        "FILES DIR:",
-        FILES_DIR
-    )
-
-    print("====================================")
-
-    # Initialize DB
-    get_db().close()
-
-    application = (
-        Application.builder()
-        .token(BOT_TOKEN)
-        .build()
-    )
-
-    # /start
-    application.add_handler(
-        CommandHandler(
-            "start",
-            start
+    if not is_admin(user_id):
+        await update.message.reply_text(
+            "❌ Admins only."
         )
-    )
+        return
 
-    # Files
-    application.add_handler(
-        MessageHandler(
-            filters.Document.ALL
-            | filters.PHOTO
-            | filters.AUDIO
-            | filters.VOICE,
-            handle_media_upload
-        )
-    )
+    path = context.user_data.get("path", [])
 
-    # Text
-    application.add_handler(
-        MessageHandler(
-            filters.TEXT & ~filters.COMMAND,
-            handle_message
-        )
-    )
+    # ---------------------
+    # Document
+    # ---------------------
 
-    # Errors
-    application.add_error_handler(
-        error_handler
-    )
+    if update.message.document:
 
-    print(
-        "BOT IS RUNNING..."
-    )
+        media = update.message.document
 
-    application.run_polling(
-        drop_pending_updates=True
-    )
+        filename = media.file_name or "document"
 
+        file_type = "document"
 
-if __name__ == "__main__":
-    main()
+    # ---------------------
+    # Photo
+    # ---------------------
+
+    elif update.message.photo:
+
+        media = update.message.photo[-1]
+
+        filename = f"photo_{media.file_unique_id}.jpg"
+
+        file_type = "photo"
+
+    # ---------------------
+    # Audio
+    # ---------------------
+
+    elif update.message.audio:
+
+        media = update.message.audio
+
+        filename = media.file_name or "audio"
+
+        file_type = "audio"
+
+    # ---------------------
+    # Voice
+    # ---------------------
+
+    elif update.message.voice:
+
+        media = update.message.voice
+
+        filename = f"voice_{media.file_unique_id}.ogg"
+
+        file_type = "voice"
+
+    else:
+        return
+
+    filename = sanitize_filename(filename)
+
+    # ---------------------
+    # Duplicate check
+    # ---------------------
+
+    existing = get_file_by_name(path, filename)
+
+    if existing:
+        await update.message.reply_text(
+            f'❌ File "{filename}" already exists in th
