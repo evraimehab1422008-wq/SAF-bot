@@ -9,7 +9,7 @@ from telegram.ext import (
     filters,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAG2A5K0soKYuahev0439Ixg0yiHehaJ9MQ")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAFqU8dMWrO3Ov5JjDWMv4OqrIXSZdmaPIY")
 ADMIN_IDS = [6448008082, 8791458947]
 
 def is_admin(user_id: int) -> bool:
@@ -140,7 +140,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
 
     keyboard = []
 
-    # 1. إظهار أقسام القائمة وتصفية المفاتيح الداخلية
+    # 1. بناء الأزرار ومنع ظهور has_lab تماماً
     if isinstance(current_node, dict):
         if "has_lab" in current_node:
             if current_node["has_lab"]:
@@ -148,6 +148,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             else:
                 keyboard.append([KeyboardButton("Theoretical")])
         else:
+            # تصفية استثنائية لأي مفتاح برمجي
             keys = [k for k in current_node.keys() if k != "has_lab"]
             for i in range(0, len(keys), 2):
                 row = [KeyboardButton(keys[i])]
@@ -155,7 +156,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
                     row.append(KeyboardButton(keys[i+1]))
                 keyboard.append(row)
 
-    # 2. تحويل الملفات المرفوعة لأزرار تفاعلية تحت
+    # 2. إظهار الملفات كأزرار تحت
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
 
@@ -164,7 +165,7 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
             icon = "📄" if f["type"] == "document" else ("🖼️" if f["type"] == "photo" else "🎙️")
             keyboard.append([KeyboardButton(f"{icon} {f['name']}")])
 
-    # 3. أزرار الملاحة والتحكم
+    # 3. تحكم الملاحة
     control_row = []
     if path:
         control_row.append(KeyboardButton("Back"))
@@ -179,7 +180,9 @@ async def send_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: st
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     msg_text = text + f"\n\n📍 **Current Location:** `{path_key}`"
-    if not files:
+    if files:
+        msg_text += "\n\n📚 **Click any button below to download the file:**"
+    else:
         msg_text += "\n\n📂 No files uploaded in this location yet."
 
     if is_admin(update.effective_user.id):
@@ -195,7 +198,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     path = context.user_data["path"]
     user_id = update.effective_user.id
 
-    if text == "Home":
+    if text in ["Home", "/start"]:
         context.user_data["path"] = []
         context.user_data["deleting_mode"] = False
         await send_menu(update, context, "Home Menu:")
@@ -215,7 +218,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         path_key = " -> ".join(path) if path else "Root (Home)"
         files = file_database.get(path_key, [])
         if not files:
-            await update.message.reply_text("⚠️ No files available to delete in this section!")
+            await update.message.reply_text("⚠️ No files available to delete!")
             return
         
         context.user_data["deleting_mode"] = True
@@ -227,7 +230,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             delete_keyboard.append(row)
         delete_keyboard.append([KeyboardButton("Back"), KeyboardButton("Home")])
         
-        await update.message.reply_text("Select the file you want to delete:", reply_markup=ReplyKeyboardMarkup(delete_keyboard, resize_keyboard=True))
+        await update.message.reply_text("Select file to delete:", reply_markup=ReplyKeyboardMarkup(delete_keyboard, resize_keyboard=True))
         return
 
     if text.startswith("Delete: ") and context.user_data.get("deleting_mode"):
@@ -235,11 +238,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         path_key = " -> ".join(path) if path else "Root (Home)"
         file_database[path_key] = [f for f in file_database.get(path_key, []) if f["name"] != file_to_delete]
         context.user_data["deleting_mode"] = False
-        await update.message.reply_text(f"🗑️ Successfully deleted: `{file_to_delete}`", parse_mode="Markdown")
+        await update.message.reply_text(f"🗑️ Deleted: `{file_to_delete}`", parse_mode="Markdown")
         await send_menu(update, context, "Updated list:")
         return
 
-    # التحقق إذا كان الضغط على زرار ملف مفرد ليعيده البوت فوراً
+    # التفاعل مع الملفات
     path_key = " -> ".join(path) if path else "Root (Home)"
     files = file_database.get(path_key, [])
     for f in files:
@@ -306,7 +309,7 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         file_type = "document"
     elif update.message.photo:
         file_id = update.message.photo[-1].file_id
-        file_name = update.message.caption or f"Image_{len(file_database[path_key])+1}.jpg"
+        file_name = update.message.caption or f"Photo_{len(file_database[path_key])+1}.jpg"
         file_type = "photo"
     elif update.message.voice or update.message.audio:
         media = update.message.voice or update.message.audio
@@ -322,8 +325,8 @@ async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE
         "type": file_type
     })
 
-    await update.message.reply_text(f"✅ Saved `{file_name}` to `{path_key}`!", parse_mode="Markdown")
-    await send_menu(update, context, "Updated Folder Status:")
+    await update.message.reply_text(f"✅ Saved `{file_name}`!", parse_mode="Markdown")
+    await send_menu(update, context, "Updated Folder:")
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -334,5 +337,6 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(media_filter, handle_media_upload))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🤖 Bot started perfectly...")
+    print("🤖 Bot running cleanly...")
     app.run_polling()
+        
