@@ -33,7 +33,8 @@ STORAGE_ROOT = Path(
 
 ADMIN_IDS = {
     6448008082,
-    8791458947, 8881717605
+    8791458947,
+    8881717605,
 }
 
 # =========================================================
@@ -804,38 +805,19 @@ def split_subject_title(name):
 
 
 def subject_sections(node):
-    if "lecture" in node:
+    has_lecture = node.get("lecture", True if "lecture" not in node else False)
+    has_lab = node.get("lab", False)
 
-        lecture = node.get(
-            "lecture",
-            False,
-        )
-
-        lab = node.get(
-            "lab",
-            False,
-        )
-
-    else:
-
-        lecture = True
-
-        lab = node.get(
-            "lab",
-            False,
-        )
+    if "lecture" not in node and "lab" in node:
+        has_lecture = True
 
     sections = []
 
-    if lecture:
-        sections.append(
-            THEORETICAL
-        )
+    if has_lecture:
+        sections.append(THEORETICAL)
 
-    if lab:
-        sections.append(
-            PRACTICAL
-        )
+    if has_lab:
+        sections.append(PRACTICAL)
 
     return sections
 
@@ -1461,6 +1443,29 @@ async def handle_text(
         )
 
         return
+
+    if isinstance(node, dict):
+        for key in node.keys():
+            if text == key or text == format_subject_button(key) or text == split_subject_title(key):
+                nav_path = (
+                    nav_path
+                    + [key]
+                )
+
+                context.user_data[
+                    "nav_path"
+                ] = nav_path
+
+                context.user_data[
+                    "section"
+                ] = None
+
+                await show_location(
+                    update,
+                    context,
+                )
+
+                return
 
     await update.effective_message.reply_text(
         "❌ Please choose a button."
