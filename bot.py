@@ -20,7 +20,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 # Put Telegram USER IDs of your admins here
 ADMIN_IDS = [
-    6448008082,
+    6448008082,8791458947
     # Add another admin ID here if needed
 ]
 
