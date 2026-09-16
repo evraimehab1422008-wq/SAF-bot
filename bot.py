@@ -613,8 +613,6 @@ def get_node(path):
 
     for part in path:
 
-        # Theoretical / Practical are storage sections,
-        # NOT navigation nodes.
         if part in SECTION_NAMES:
             continue
 
@@ -771,16 +769,6 @@ def pair_buttons(items):
 
 
 def format_subject_button(name):
-    """
-    If a subject contains a code in quotes,
-    display it on a second line.
-
-    Example:
-
-    🫁 PH pulmonary
-    "CAPU324"
-    """
-
     match = re.match(
         r'^(.*?)\s+("[^"]+")$',
         name,
@@ -816,8 +804,6 @@ def split_subject_title(name):
 
 
 def subject_sections(node):
-
-    # Track subjects explicitly define lecture/lab.
     if "lecture" in node:
 
         lecture = node.get(
@@ -832,8 +818,6 @@ def subject_sections(node):
 
     else:
 
-        # Normal subjects:
-        # lecture is always available.
         lecture = True
 
         lab = node.get(
@@ -914,10 +898,6 @@ async def show_location(
         "section"
     )
 
-    # =====================================================
-    # INSIDE THEORETICAL / PRACTICAL
-    # =====================================================
-
     if section:
 
         storage_path = (
@@ -947,8 +927,6 @@ async def show_location(
                 [DELETE]
             )
 
-        # IMPORTANT:
-        # Back returns directly to the subject.
         rows.append(
             [BACK, HOME]
         )
@@ -967,4 +945,1069 @@ async def show_location(
                 "📂 No files here yet."
             )
 
-        await update.effective_message.reply_text
+        await update.effective_message.reply_text(
+            message,
+            reply_markup=make_keyboard(rows),
+        )
+
+        return
+
+    node = get_node(
+        nav_path
+    )
+
+    if (
+        isinstance(node, dict)
+        and node.get("type") == "subject"
+    ):
+
+        sections = subject_sections(
+            node
+        )
+
+        rows = pair_buttons(
+            sections
+        )
+
+        rows.append(
+            [BACK, HOME]
+        )
+
+        title = split_subject_title(
+            nav_path[-1]
+        )
+
+        await update.effective_message.reply_text(
+            title,
+            reply_markup=make_keyboard(rows),
+        )
+
+        return
+
+    if not isinstance(
+        node,
+        dict,
+    ):
+        await update.effective_message.reply_text(
+            "❌ Navigation error."
+        )
+        return
+
+    items = list(
+        node.keys()
+    )
+
+    rows = []
+
+    for i in range(
+        0,
+        len(items),
+        2,
+    ):
+
+        pair = items[i:i + 2]
+
+        display_pair = []
+
+        for item in pair:
+
+            item_node = node[item]
+
+            if (
+                isinstance(item_node, dict)
+                and item_node.get("type") == "subject"
+            ):
+                display_pair.append(
+                    format_subject_button(item)
+                )
+            else:
+                display_pair.append(
+                    item
+                )
+
+        rows.append(
+            display_pair
+        )
+
+    if nav_path:
+        rows.append(
+            [BACK, HOME]
+        )
+
+    title = (
+        split_subject_title(
+            nav_path[-1]
+        )
+        if nav_path
+        else "🏠 Home"
+    )
+
+    await update.effective_message.reply_text(
+        title,
+        reply_markup=make_keyboard(rows),
+    )
+
+
+# =========================================================
+# START
+# =========================================================
+
+async def start(
+    update,
+    context,
+):
+    await show_home(
+        update,
+        context,
+    )
+
+
+# =========================================================
+# BACK
+# =========================================================
+
+async def handle_back(
+    update,
+    context,
+):
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    if section:
+
+        context.user_data[
+            "section"
+        ] = None
+
+        context.user_data[
+            "delete_mode"
+        ] = False
+
+        await show_location(
+            update,
+            context,
+        )
+
+        return
+
+    if nav_path:
+
+        nav_path = nav_path[:-1]
+
+        context.user_data[
+            "nav_path"
+        ] = nav_path
+
+        context.user_data[
+            "section"
+        ] = None
+
+        context.user_data[
+            "delete_mode"
+        ] = False
+
+        await show_location(
+            update,
+            context,
+        )
+
+        return
+
+    await show_home(
+        update,
+        context,
+    )
+
+
+# =========================================================
+# HOME BUTTON
+# =========================================================
+
+async def handle_home(
+    update,
+    context,
+):
+    await show_home(
+        update,
+        context,
+    )
+
+
+# =========================================================
+# DELETE MODE
+# =========================================================
+
+async def handle_delete_mode(
+    update,
+    context,
+):
+    if not is_admin(
+        update.effective_user.id
+    ):
+        await update.effective_message.reply_text(
+            "❌ Admin only."
+        )
+        return
+
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    if section:
+
+        current_path = (
+            nav_path
+            + [section]
+        )
+
+    else:
+
+        current_path = nav_path
+
+    files = get_files(
+        current_path
+    )
+
+    if not files:
+
+        await update.effective_message.reply_text(
+            "❌ No files to delete."
+        )
+
+        await show_location(
+            update,
+            context,
+        )
+
+        return
+
+    context.user_data[
+        "delete_mode"
+    ] = True
+
+    context.user_data[
+        "delete_path"
+    ] = current_path
+
+    rows = []
+
+    for _, name, _, _ in files:
+
+        rows.append(
+            [name]
+        )
+
+    rows.append(
+        [BACK, HOME]
+    )
+
+    await update.effective_message.reply_text(
+        "🗑️ Select the file you want to delete:",
+        reply_markup=make_keyboard(rows),
+    )
+
+
+# =========================================================
+# SEND SAVED FILE
+# =========================================================
+
+async def send_saved_file(
+    update,
+    row,
+):
+    _, name, file_path, file_type = row
+
+    try:
+
+        if file_type == "document":
+
+            await update.effective_message.reply_document(
+                document=file_path,
+                caption=name,
+            )
+
+        elif file_type == "photo":
+
+            await update.effective_message.reply_photo(
+                photo=file_path,
+                caption=name,
+            )
+
+        elif file_type == "audio":
+
+            await update.effective_message.reply_audio(
+                audio=file_path,
+                caption=name,
+            )
+
+        elif file_type == "voice":
+
+            await update.effective_message.reply_voice(
+                voice=file_path,
+            )
+
+        else:
+
+            await update.effective_message.reply_document(
+                document=file_path,
+                caption=name,
+            )
+
+    except Exception as error:
+
+        await update.effective_message.reply_text(
+            f"❌ Could not send file:\n{error}"
+        )
+
+
+# =========================================================
+# HANDLE TEXT
+# =========================================================
+
+async def handle_text(
+    update,
+    context,
+):
+    text = (
+        update.effective_message.text
+        or ""
+    )
+
+    user_id = (
+        update.effective_user.id
+    )
+
+    if text == HOME:
+
+        await handle_home(
+            update,
+            context,
+        )
+
+        return
+
+    if text == BACK:
+
+        context.user_data[
+            "delete_mode"
+        ] = False
+
+        await handle_back(
+            update,
+            context,
+        )
+
+        return
+
+    if text == DELETE:
+
+        await handle_delete_mode(
+            update,
+            context,
+        )
+
+        return
+
+    if context.user_data.get(
+        "delete_mode"
+    ):
+
+        if not is_admin(user_id):
+
+            context.user_data[
+                "delete_mode"
+            ] = False
+
+            return
+
+        delete_path = context.user_data.get(
+            "delete_path",
+            [],
+        )
+
+        files = get_files(
+            delete_path
+        )
+
+        match = None
+
+        for row in files:
+
+            if row[1] == text:
+
+                match = row
+                break
+
+        if not match:
+
+            await update.effective_message.reply_text(
+                "❌ File not found."
+            )
+
+            return
+
+        remove_file(
+            match[0]
+        )
+
+        context.user_data[
+            "delete_mode"
+        ] = False
+
+        await update.effective_message.reply_text(
+            f'✅ File "{text}" deleted.'
+        )
+
+        await show_location(
+            update,
+            context,
+        )
+
+        return
+
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    node = get_node(
+        nav_path
+    )
+
+    if (
+        isinstance(node, dict)
+        and node.get("type") == "subject"
+    ):
+
+        sections = subject_sections(
+            node
+        )
+
+        if text in sections:
+
+            context.user_data[
+                "section"
+            ] = text
+
+            context.user_data[
+                "delete_mode"
+            ] = False
+
+            await show_location(
+                update,
+                context,
+            )
+
+            return
+
+    if section:
+
+        storage_path = (
+            nav_path
+            + [section]
+        )
+
+        files = get_files(
+            storage_path
+        )
+
+        for row in files:
+
+            if row[1] == text:
+
+                await send_saved_file(
+                    update,
+                    row,
+                )
+
+                return
+
+    if (
+        isinstance(node, dict)
+        and text in node
+    ):
+
+        nav_path = (
+            nav_path
+            + [text]
+        )
+
+        context.user_data[
+            "nav_path"
+        ] = nav_path
+
+        context.user_data[
+            "section"
+        ] = None
+
+        await show_location(
+            update,
+            context,
+        )
+
+        return
+
+    await update.effective_message.reply_text(
+        "❌ Please choose a button."
+    )
+
+
+# =========================================================
+# SAVE DOCUMENT
+# =========================================================
+
+async def save_document(
+    update,
+    context,
+):
+    if not is_admin(
+        update.effective_user.id
+    ):
+        await update.effective_message.reply_text(
+            "❌ Admin only."
+        )
+        return
+
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    if not section:
+
+        await update.effective_message.reply_text(
+            "❌ Choose Theoretical or Practical first."
+        )
+
+        return
+
+    path = (
+        nav_path
+        + [section]
+    )
+
+    document = (
+        update.effective_message.document
+    )
+
+    original_name = (
+        document.file_name
+        or (
+            "file_"
+            + datetime.now().strftime(
+                "%Y%m%d_%H%M%S"
+            )
+        )
+    )
+
+    name = sanitize_filename(
+        original_name
+    )
+
+    if file_exists(
+        path,
+        name,
+    ):
+
+        await update.effective_message.reply_text(
+            f'❌ File "{name}" already exists.'
+        )
+
+        return
+
+    target = (
+        storage_directory(path)
+        / name
+    )
+
+    try:
+
+        telegram_file = (
+            await document.get_file()
+        )
+
+        await telegram_file.download_to_drive(
+            custom_path=str(target)
+        )
+
+        if not add_file(
+            path,
+            name,
+            target,
+            "document",
+        ):
+
+            target.unlink(
+                missing_ok=True
+            )
+
+            await update.effective_message.reply_text(
+                f'❌ File "{name}" already exists.'
+            )
+
+            return
+
+        await update.effective_message.reply_text(
+            f"✅ Uploaded: {name}"
+        )
+
+        await show_location(
+            update,
+            context,
+        )
+
+    except Exception as error:
+
+        target.unlink(
+            missing_ok=True
+        )
+
+        await update.effective_message.reply_text(
+            f"❌ Upload failed:\n{error}"
+        )
+
+
+# =========================================================
+# SAVE PHOTO
+# =========================================================
+
+async def save_photo(
+    update,
+    context,
+):
+    if not is_admin(
+        update.effective_user.id
+    ):
+        await update.effective_message.reply_text(
+            "❌ Admin only."
+        )
+        return
+
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    if not section:
+
+        await update.effective_message.reply_text(
+            "❌ Choose Theoretical or Practical first."
+        )
+
+        return
+
+    path = (
+        nav_path
+        + [section]
+    )
+
+    message = (
+        update.effective_message
+    )
+
+    photo = (
+        message.photo[-1]
+    )
+
+    caption = (
+        message.caption
+        or (
+            "photo_"
+            + datetime.now().strftime(
+                "%Y%m%d_%H%M%S"
+            )
+            + ".jpg"
+        )
+    )
+
+    name = sanitize_filename(
+        caption
+    )
+
+    if "." not in Path(name).name:
+
+        name += ".jpg"
+
+    if file_exists(
+        path,
+        name,
+    ):
+
+        await message.reply_text(
+            f'❌ File "{name}" already exists.'
+        )
+
+        return
+
+    target = (
+        storage_directory(path)
+        / name
+    )
+
+    try:
+
+        telegram_file = (
+            await photo.get_file()
+        )
+
+        await telegram_file.download_to_drive(
+            custom_path=str(target)
+        )
+
+        if not add_file(
+            path,
+            name,
+            target,
+            "photo",
+        ):
+
+            target.unlink(
+                missing_ok=True
+            )
+
+            await message.reply_text(
+                f'❌ File "{name}" already exists.'
+            )
+
+            return
+
+        await message.reply_text(
+            f"✅ Uploaded: {name}"
+        )
+
+        await show_location(
+            update,
+            context,
+        )
+
+    except Exception as error:
+
+        target.unlink(
+            missing_ok=True
+        )
+
+        await message.reply_text(
+            f"❌ Upload failed:\n{error}"
+        )
+
+
+# =========================================================
+# SAVE AUDIO / VOICE
+# =========================================================
+
+async def save_audio_or_voice(
+    update,
+    context,
+):
+    if not is_admin(
+        update.effective_user.id
+    ):
+        await update.effective_message.reply_text(
+            "❌ Admin only."
+        )
+        return
+
+    nav_path = context.user_data.get(
+        "nav_path",
+        [],
+    )
+
+    section = context.user_data.get(
+        "section"
+    )
+
+    if not section:
+
+        await update.effective_message.reply_text(
+            "❌ Choose Theoretical or Practical first."
+        )
+
+        return
+
+    path = (
+        nav_path
+        + [section]
+    )
+
+    message = (
+        update.effective_message
+    )
+
+    if message.audio:
+
+        telegram_file = (
+            message.audio
+        )
+
+        name = (
+            message.audio.file_name
+            or (
+                "audio_"
+                + datetime.now().strftime(
+                    "%Y%m%d_%H%M%S"
+                )
+                + ".mp3"
+            )
+        )
+
+        file_type = "audio"
+
+    elif message.voice:
+
+        telegram_file = (
+            message.voice
+        )
+
+        name = (
+            "voice_"
+            + datetime.now().strftime(
+                "%Y%m%d_%H%M%S"
+            )
+            + ".ogg"
+        )
+
+        file_type = "voice"
+
+    else:
+
+        return
+
+    name = sanitize_filename(
+        name
+    )
+
+    if file_exists(
+        path,
+        name,
+    ):
+
+        await message.reply_text(
+            f'❌ File "{name}" already exists.'
+        )
+
+        return
+
+    target = (
+        storage_directory(path)
+        / name
+    )
+
+    try:
+
+        telegram_file = (
+            await telegram_file.get_file()
+        )
+
+        await telegram_file.download_to_drive(
+            custom_path=str(target)
+        )
+
+        if not add_file(
+            path,
+            name,
+            target,
+            file_type,
+        ):
+
+            target.unlink(
+                missing_ok=True
+            )
+
+            await message.reply_text(
+                f'❌ File "{name}" already exists.'
+            )
+
+            return
+
+        await message.reply_text(
+            f"✅ Uploaded: {name}"
+        )
+
+        await show_location(
+            update,
+            context,
+        )
+
+    except Exception as error:
+
+        target.unlink(
+            missing_ok=True
+        )
+
+        await message.reply_text(
+            f"❌ Upload failed:\n{error}"
+        )
+
+
+# =========================================================
+# MEDIA HANDLER
+# =========================================================
+
+async def save_media(
+    update,
+    context,
+):
+    message = (
+        update.effective_message
+    )
+
+    if message.document:
+
+        await save_document(
+            update,
+            context,
+        )
+
+        return
+
+    if message.photo:
+
+        await save_photo(
+            update,
+            context,
+        )
+
+        return
+
+    if (
+        message.audio
+        or message.voice
+    ):
+
+        await save_audio_or_voice(
+            update,
+            context,
+        )
+
+        return
+
+
+# =========================================================
+# MAIN MESSAGE HANDLER
+# =========================================================
+
+async def on_message(
+    update,
+    context,
+):
+    if not update.effective_message:
+        return
+
+    message = (
+        update.effective_message
+    )
+
+    if (
+        message.document
+        or message.photo
+        or message.audio
+        or message.voice
+    ):
+
+        await save_media(
+            update,
+            context,
+        )
+
+        return
+
+    if message.text:
+
+        await handle_text(
+            update,
+            context,
+        )
+
+
+# =========================================================
+# MAIN
+# =========================================================
+
+def main():
+
+    print(
+        "PT MATERIALS BOT STARTING",
+        flush=True,
+    )
+
+    if not BOT_TOKEN:
+
+        raise RuntimeError(
+            "BOT_TOKEN is not set."
+        )
+
+    Path(
+        DB_PATH
+    ).parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    STORAGE_ROOT.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    connection = get_db()
+    connection.close()
+
+    app = (
+        Application
+        .builder()
+        .token(BOT_TOKEN)
+        .build()
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start,
+        )
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            on_message,
+        )
+    )
+
+    print(
+        "BOT IS RUNNING...",
+        flush=True,
+    )
+
+    app.run_polling(
+        drop_pending_updates=True
+    )
+
+
+# =========================================================
+# RUN
+# =========================================================
+
+if __name__ == "__main__":
+    main()
