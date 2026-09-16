@@ -1,10 +1,16 @@
 import os
+import re
 import sqlite3
-import logging
+from pathlib import Path
+from datetime import datetime
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+)
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     MessageHandler,
     ContextTypes,
@@ -13,47 +19,33 @@ from telegram.ext import (
 
 
 # =========================================================
-# CONFIGURATION
+# SETTINGS
 # =========================================================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Put Telegram USER IDs of your admins here
+# YOUR TWO ADMINS
 ADMIN_IDS = [
-    6448008082,8791458947
-    # Add another admin ID here if needed
+    6448008082,
+    8791458947,
 ]
 
-# Railway:
-# Create a Volume mounted at /data
-# Then add:
-#
-# DB_PATH=/data/bot_database.db
-#
-# For local testing, the default will be:
-# bot_database.db
+DB_PATH = os.getenv("DB_PATH", "/data/bot_database.db")
 
-DB_PATH = os.getenv("DB_PATH", "bot_database.db")
+# All uploaded files will be stored here.
+FILES_DIR = Path("/data/files")
 
 
 # =========================================================
-# LOGGING
+# CHECK SETTINGS
 # =========================================================
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
+if not BOT_TOKEN:
+    raise RuntimeError("BOT_TOKEN is missing from Railway Variables.")
 
-logger = logging.getLogger(__name__)
+FILES_DIR.mkdir(parents=True, exist_ok=True)
 
-
-# =========================================================
-# ADMIN CHECK
-# =========================================================
-
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
 
 
 # =========================================================
@@ -63,329 +55,111 @@ def is_admin(user_id: int) -> bool:
 STRUCTURE = {
     "🔴 Level 1": {
         "Semester 1": {
-            "🦴 Anatomy I": {
-                "type": "subject",
-                "lab": True
-            },
-            "🧪 Biochemistry I": {
-                "type": "subject",
-                "lab": False
-            },
-            "🔬 Histology": {
-                "type": "subject",
-                "lab": True
-            },
-            "🫀 Physiology I": {
-                "type": "subject",
-                "lab": True
-            }
+            "🦴 Anatomy I": {"lab": True},
+            "🧪 Biochemistry I": {"lab": False},
+            "🔬 Histology": {"lab": True},
+            "🫀 Physiology I": {"lab": True},
         },
-
         "Semester 2": {
-            "🦴 Anatomy II": {
-                "type": "subject",
-                "lab": True
-            },
-            "🧪 Biochemistry II": {
-                "type": "subject",
-                "lab": False
-            },
-            "🫀 Physiology II": {
-                "type": "subject",
-                "lab": True
-            },
-            "🏃 Kinesiology I": {
-                "type": "subject",
-                "lab": True
-            },
-            "⚡ Biophysics": {
-                "type": "subject",
-                "lab": True
-            }
-        }
+            "🦴 Anatomy II": {"lab": True},
+            "🧪 Biochemistry II": {"lab": False},
+            "🫀 Physiology II": {"lab": True},
+            "🏃 Kinesiology I": {"lab": True},
+            "⚡ Biophysics": {"lab": True},
+        },
     },
 
     "🟠 Level 2": {
         "Semester 3": {
-            "🧠 Neuroanatomy": {
-                "type": "subject",
-                "lab": True
-            },
-            "🦾 Biomechanics II": {
-                "type": "subject",
-                "lab": True
-            },
-            "⚡ Electrotherapy I": {
-                "type": "subject",
-                "lab": True
-            },
-            "📋 Evaluation I": {
-                "type": "subject",
-                "lab": True
-            },
-            "🧠 Neurophysiology": {
-                "type": "subject",
-                "lab": False
-            },
-            "🏋️ Therapeutic Ex. I": {
-                "type": "subject",
-                "lab": True
-            }
+            "🧠 Neuroanatomy": {"lab": True},
+            "🦾 Biomechanics II": {"lab": True},
+            "⚡ Electrotherapy I": {"lab": True},
+            "📋 Evaluation I": {"lab": True},
+            "🧠 Neurophysiology": {"lab": False},
+            "🏋️ Therapeutic Ex. I": {"lab": True},
         },
-
         "Semester 4": {
-            "🦾 Biomechanics III": {
-                "type": "subject",
-                "lab": True
-            },
-            "🩺 Community Health": {
-                "type": "subject",
-                "lab": False
-            },
-            "📋 Evaluation II": {
-                "type": "subject",
-                "lab": True
-            },
-            "🫀 Exercise Physiology": {
-                "type": "subject",
-                "lab": False
-            },
-            "🔬 Pathology": {
-                "type": "subject",
-                "lab": False
-            },
-            "👐 Manual Therapy": {
-                "type": "subject",
-                "lab": True
-            },
-            "⚡ Electrotherapy II": {
-                "type": "subject",
-                "lab": True
-            },
-            "🦴 Anatomy IV": {
-                "type": "subject",
-                "lab": True
-            },
-            "⚖️ Legal & Ethics": {
-                "type": "subject",
-                "lab": False
-            }
-        }
+            "🦾 Biomechanics III": {"lab": True},
+            "🩺 Community Health": {"lab": False},
+            "📋 Evaluation II": {"lab": True},
+            "🫀 Exercise Physiology": {"lab": False},
+            "🔬 Pathology": {"lab": False},
+            "👐 Manual Therapy": {"lab": True},
+            "⚡ Electrotherapy II": {"lab": True},
+            "🦴 Anatomy IV": {"lab": True},
+            "⚖️ Legal & Ethics": {"lab": False},
+        },
     },
 
     "🟡 Level 3": {
         "Semester 5": {
-            "🦾 Biomechanics IV": {
-                "type": "subject",
-                "lab": True
-            },
-            "🌊 Hydrotherapy": {
-                "type": "subject",
-                "lab": True
-            },
-            "📊 Research & Statistics": {
-                "type": "subject",
-                "lab": False
-            },
-            "💼 Management & Decision": {
-                "type": "subject",
-                "lab": False
-            },
-            "🩺 Pathophysiology": {
-                "type": "subject",
-                "lab": False
-            },
-            "💊 Pharmacology": {
-                "type": "subject",
-                "lab": False
-            },
-            "♿ Rehabilitation": {
-                "type": "subject",
-                "lab": False
-            }
-        }
+            "🦾 Biomechanics IV": {"lab": True},
+            "🌊 Hydrotherapy": {"lab": True},
+            "📊 Research & Statistics": {"lab": False},
+            "💼 Management & Decision": {"lab": False},
+            "🩺 Pathophysiology": {"lab": False},
+            "💊 Pharmacology": {"lab": False},
+            "♿ Rehabilitation": {"lab": False},
+        },
     },
 
     "🟢 Tracks": {
         "🫀 Batna Track": {
-            "🩺 Clin. Med. Cardio": {
-                "type": "subject",
-                "lab": False
-            },
-            "🫁 Clin. Med. Chest & Internal": {
-                "type": "subject",
-                "lab": False
-            },
-            "👵 Clin. Practice Geriatrics": {
-                "type": "subject",
-                "lab": True
-            },
-            "🫀 Clin. Practice Cardio & Pulm.": {
-                "type": "subject",
-                "lab": True
-            },
-            "🦯 Geriatric Rehab": {
-                "type": "subject",
-                "lab": True
-            },
-            "🫁 P.T. Chest & Internal": {
-                "type": "subject",
-                "lab": True
-            },
-            "🫀 P.T. Cardio": {
-                "type": "subject",
-                "lab": True
-            },
-            "🥗 Nutrition": {
-                "type": "subject",
-                "lab": False
-            },
-            "🧠 Psych. for Handicapped": {
-                "type": "subject",
-                "lab": False
-            },
-            "🩻 Radiology": {
-                "type": "subject",
-                "lab": False
-            }
+            "🩺 Clin. Med. Cardio": {"lab": False},
+            "🫁 Clin. Med. Chest & Internal": {"lab": False},
+            "👵 Clin. Practice Geriatrics": {"lab": False},
+            "🫀 Clin. Practice Cardio & Pulm.": {"lab": False},
+            "🦯 Geriatric Rehab": {"lab": False},
+            "🫁 P.T. Chest & Internal": {"lab": False},
+            "🫀 P.T. Cardio": {"lab": False},
+            "🥗 Nutrition": {"lab": False},
+            "🧠 Psych. for Handicapped": {"lab": False},
+            "🩻 Radiology": {"lab": False},
         },
 
         "🤰 Gyna Track": {
-            "🪑 Ergonomics": {
-                "type": "subject",
-                "lab": True
-            },
-            "🩺 Clin. Practice Surgery": {
-                "type": "subject",
-                "lab": True
-            },
-            "🩹 P.T. Surgery": {
-                "type": "subject",
-                "lab": True
-            },
-            "👩‍⚕️ Clin. Practice Womens Health": {
-                "type": "subject",
-                "lab": True
-            },
-            "🤰 P.T. Womens Health": {
-                "type": "subject",
-                "lab": True
-            },
-            "🩺 Clin. Med. Womens Health": {
-                "type": "subject",
-                "lab": False
-            },
-            "📚 Evidence Based Practice": {
-                "type": "subject",
-                "lab": False
-            },
-            "🏥 General Surgery & ICU": {
-                "type": "subject",
-                "lab": False
-            }
+            "🪑 Ergonomics": {"lab": False},
+            "🩺 Clin. Practice Surgery": {"lab": False},
+            "🩹 P.T. Surgery": {"lab": False},
+            "👩‍⚕️ Clin. Practice Womens Health": {"lab": False},
+            "🤰 P.T. Womens Health": {"lab": False},
+            "🩺 Clin. Med. Womens Health": {"lab": False},
+            "📚 Evidence Based Practice": {"lab": False},
+            "🏥 General Surgery & ICU": {"lab": False},
         },
 
         "🦴 Ortho Track": {
-            "🩺 Clin. Med. Traumatology": {
-                "type": "subject",
-                "lab": False
-            },
-            "🦴 Clin. Med. Ortho Surgery": {
-                "type": "subject",
-                "lab": False
-            },
-            "📋 Physical Diagnosis": {
-                "type": "subject",
-                "lab": True
-            },
-            "🦴 P.T. Orthopedics": {
-                "type": "subject",
-                "lab": True
-            },
-            "🦿 Orthotics & Prosthetics": {
-                "type": "subject",
-                "lab": True
-            },
-            "🩻 Radiodiagnosis": {
-                "type": "subject",
-                "lab": False
-            },
-            "⚽ Sport P.T.": {
-                "type": "subject",
-                "lab": True
-            },
-            "🏥 Clin. Practice Ortho": {
-                "type": "subject",
-                "lab": True
-            }
+            "🩺 Clin. Med. Traumatology": {"lab": False},
+            "🦴 Clin. Med. Ortho Surgery": {"lab": False},
+            "📋 Physical Diagnosis": {"lab": False},
+            "🦴 P.T. Orthopedics": {"lab": False},
+            "🦿 Orthotics & Prosthetics": {"lab": False},
+            "🩻 Radiodiagnosis": {"lab": False},
+            "⚽ Sport P.T.": {"lab": False},
+            "🏥 Clin. Practice Ortho": {"lab": False},
         },
 
         "👶 Peds Track": {
-            "🩺 Clin. Med. Pediatrics": {
-                "type": "subject",
-                "lab": False
-            },
-            "👶 Clin. Practice Peds": {
-                "type": "subject",
-                "lab": True
-            },
-            "🧸 Motor Development": {
-                "type": "subject",
-                "lab": True
-            },
-            "👶 P.T. Pediatrics": {
-                "type": "subject",
-                "lab": True
-            },
-            "🏥 P.T. Pediatric Surgery": {
-                "type": "subject",
-                "lab": True
-            },
-            "🗣️ Speech Therapy": {
-                "type": "subject",
-                "lab": False
-            },
-            "🧩 Occupational Therapy": {
-                "type": "subject",
-                "lab": False
-            }
+            "🩺 Clin. Med. Pediatrics": {"lab": False},
+            "👶 Clin. Practice Peds": {"lab": False},
+            "🧸 Motor Development": {"lab": False},
+            "👶 P.T. Pediatrics": {"lab": False},
+            "🏥 P.T. Pediatric Surgery": {"lab": False},
+            "🗣️ Speech Therapy": {"lab": False},
+            "🧩 Occupational Therapy": {"lab": False},
         },
 
         "🧠 Neuro Track": {
-            "🩺 Clin. Med. Neurology": {
-                "type": "subject",
-                "lab": False
-            },
-            "🧠 Clin. Practice Neuro": {
-                "type": "subject",
-                "lab": True
-            },
-            "🧠 P.T. Neurology": {
-                "type": "subject",
-                "lab": True
-            },
-            "🔪 P.T. Neurosurgery": {
-                "type": "subject",
-                "lab": True
-            },
-            "🏥 Neurosurgery": {
-                "type": "subject",
-                "lab": False
-            },
-            "🔬 Recent Neuro Rehab": {
-                "type": "subject",
-                "lab": True
-            },
-            "⚡ Electrodiagnosis": {
-                "type": "subject",
-                "lab": True
-            },
-            "🏃 Motor Learning": {
-                "type": "subject",
-                "lab": False
-            }
-        }
-    }
+            "🩺 Clin. Med. Neurology": {"lab": False},
+            "🧠 Clin. Practice Neuro": {"lab": False},
+            "🧠 P.T. Neurology": {"lab": False},
+            "🔪 P.T. Neurosurgery": {"lab": False},
+            "🏥 Neurosurgery": {"lab": False},
+            "🔬 Recent Neuro Rehab": {"lab": False},
+            "⚡ Electrodiagnosis": {"lab": False},
+            "🏃 Motor Learning": {"lab": False},
+        },
+    },
 }
 
 
@@ -394,377 +168,630 @@ STRUCTURE = {
 # =========================================================
 
 def get_connection():
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_database():
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
 
-    cursor.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             path_key TEXT NOT NULL,
             name TEXT NOT NULL,
-            file_id TEXT NOT NULL,
+            file_path TEXT NOT NULL,
             file_type TEXT NOT NULL,
+            created_at TEXT NOT NULL,
             UNIQUE(path_key, name)
         )
-    """)
+        """
+    )
 
-    connection.commit()
-    connection.close()
-
-    logger.info("Database initialized: %s", DB_PATH)
+    conn.commit()
+    conn.close()
 
 
 def get_files(path_key):
-    connection = get_connection()
-    cursor = connection.cursor()
+    conn = get_connection()
 
-    cursor.execute("""
-        SELECT id, path_key, name, file_id, file_type
+    rows = conn.execute(
+        """
+        SELECT *
         FROM files
         WHERE path_key = ?
         ORDER BY id ASC
-    """, (path_key,))
+        """,
+        (path_key,),
+    ).fetchall()
 
-    files = [
-        dict(row)
-        for row in cursor.fetchall()
-    ]
-
-    connection.close()
-
-    return files
+    conn.close()
+    return rows
 
 
-def file_exists(path_key, file_name):
-    connection = get_connection()
-    cursor = connection.cursor()
+def get_file_by_id(file_id):
+    conn = get_connection()
 
-    cursor.execute("""
+    row = conn.execute(
+        """
+        SELECT *
+        FROM files
+        WHERE id = ?
+        """,
+        (file_id,),
+    ).fetchone()
+
+    conn.close()
+    return row
+
+
+def file_exists(path_key, name):
+    conn = get_connection()
+
+    row = conn.execute(
+        """
         SELECT id
         FROM files
         WHERE path_key = ? AND name = ?
-        LIMIT 1
-    """, (
-        path_key,
-        file_name
-    ))
+        """,
+        (path_key, name),
+    ).fetchone()
 
-    result = cursor.fetchone()
+    conn.close()
 
-    connection.close()
-
-    return result is not None
+    return row is not None
 
 
-def save_file(
-    path_key,
-    file_name,
-    file_id,
-    file_type
-):
-    connection = get_connection()
-    cursor = connection.cursor()
+def save_file_record(path_key, name, file_path, file_type):
+    conn = get_connection()
 
-    cursor.execute("""
-        INSERT INTO files (
+    cursor = conn.execute(
+        """
+        INSERT INTO files
+        (
             path_key,
             name,
-            file_id,
-            file_type
+            file_path,
+            file_type,
+            created_at
         )
-        VALUES (?, ?, ?, ?)
-    """, (
-        path_key,
-        file_name,
-        file_id,
-        file_type
-    ))
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            path_key,
+            name,
+            str(file_path),
+            file_type,
+            datetime.now().isoformat(),
+        ),
+    )
 
-    connection.commit()
-    connection.close()
+    file_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+
+    return file_id
 
 
-def delete_file(path_key, file_name):
-    connection = get_connection()
-    cursor = connection.cursor()
+def delete_file_record(file_id):
+    conn = get_connection()
 
-    cursor.execute("""
+    row = conn.execute(
+        """
+        SELECT *
+        FROM files
+        WHERE id = ?
+        """,
+        (file_id,),
+    ).fetchone()
+
+    if not row:
+        conn.close()
+        return False
+
+    conn.execute(
+        """
         DELETE FROM files
-        WHERE path_key = ? AND name = ?
-    """, (
-        path_key,
-        file_name
-    ))
+        WHERE id = ?
+        """,
+        (file_id,),
+    )
 
-    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
 
-    connection.commit()
-    connection.close()
+    try:
+        Path(row["file_path"]).unlink(missing_ok=True)
+    except Exception:
+        pass
 
-    return deleted
+    return True
 
 
 # =========================================================
-# PATH HELPERS
+# HELPERS
 # =========================================================
 
-def get_node(path):
-    current = STRUCTURE
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
 
-    for part in path:
 
-        if (
-            isinstance(current, dict)
-            and part in current
-        ):
-            current = current[part]
+def sanitize_filename(name):
+    if not name:
+        name = "file"
 
-        else:
-            return None
+    name = name.replace("/", "_")
+    name = name.replace("\\", "_")
+    name = re.sub(r'[<>:"|?*\x00-\x1F]', "_", name)
 
-    return current
+    name = name.strip()
+
+    if not name:
+        name = "file"
+
+    return name
 
 
 def get_path_key(path):
-    if path:
-        return " -> ".join(path)
+    if not path:
+        return "Home"
 
-    return "Root (Home)"
+    return " / ".join(path)
+
+
+def get_current_node(path):
+    node = STRUCTURE
+
+    for item in path:
+        if isinstance(node, dict) and item in node:
+            node = node[item]
+        else:
+            return None
+
+    return node
+
+
+def is_subject(path):
+    node = get_current_node(path)
+
+    return isinstance(node, dict) and "lab" in node
+
+
+def safe_folder_name(name):
+    name = sanitize_filename(name)
+    return name[:100]
+
+
+def get_storage_directory(path):
+    directory = FILES_DIR
+
+    for part in path:
+        directory = directory / safe_folder_name(part)
+
+    directory.mkdir(parents=True, exist_ok=True)
+
+    return directory
+
+
+# =========================================================
+# MENU
+# =========================================================
+
+async def send_menu(update, context):
+    path = context.user_data.get("path", [])
+    deleting = context.user_data.get("deleting", False)
+
+    path_key = get_path_key(path)
+    node = get_current_node(path)
+
+    keyboard = []
+
+    # -------------------------
+    # DELETE MODE
+    # -------------------------
+
+    if deleting:
+        files = get_files(path_key)
+
+        if not files:
+            context.user_data["deleting"] = False
+
+            await update.message.reply_text(
+                "❌ مفيش ملفات في المكان ده."
+            )
+
+            return await send_menu(update, context)
+
+        keyboard.append(["🔙 Cancel Delete"])
+
+        for file in files:
+            keyboard.append([f"🗑️ {file['name']}"])
+
+        keyboard.append(["🏠 Home"])
+
+        await update.message.reply_text(
+            f"🗑️ اختار الملف اللي عايز تحذفه:\n\n"
+            f"📍 المكان الحالي:\n{path_key}",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard,
+                resize_keyboard=True
+            ),
+        )
+
+        return
+
+    # -------------------------
+    # NORMAL MODE
+    # -------------------------
+
+    if isinstance(node, dict):
+
+        # If this is a subject
+        if "lab" in node:
+            keyboard.append(["📚 Theoretical"])
+
+            if node.get("lab"):
+                keyboard.append(["🔬 Practical"])
+
+        else:
+            for key in node.keys():
+                keyboard.append([key])
+
+    # -------------------------
+    # FILES
+    # -------------------------
+
+    files = get_files(path_key)
+
+    if files:
+        keyboard.append(["📂 Files"])
+
+        for file in files:
+            keyboard.append([f"📄 {file['name']}"])
+
+    # -------------------------
+    # ADMIN DELETE
+    # -------------------------
+
+    if is_admin(update.effective_user.id) and files:
+        keyboard.append(["🗑️ Delete File"])
+
+    # -------------------------
+    # NAVIGATION
+    # -------------------------
+
+    if path:
+        keyboard.append(["🔙 Back"])
+
+    keyboard.append(["🏠 Home"])
+
+    location_text = get_path_key(path)
+
+    text = (
+        f"📍 Current Location:\n"
+        f"{location_text}\n\n"
+        f"اختار من القائمة:"
+    )
+
+    await update.message.reply_text(
+        text,
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard,
+            resize_keyboard=True
+        ),
+    )
 
 
 # =========================================================
 # START
 # =========================================================
 
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["path"] = []
-    context.user_data["deleting_mode"] = False
+    context.user_data["deleting"] = False
 
-    await send_menu(
-        update,
-        context,
-        "Welcome to Physical Therapy Academic Bot 🩺\n"
-        "Select a section:"
-    )
+    await send_menu(update, context)
 
 
 # =========================================================
-# SEND MENU
+# SEND SAVED FILE
 # =========================================================
 
-async def send_menu(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    text: str
-):
+async def send_saved_file(update, file):
+    file_path = Path(file["file_path"])
 
-    path = context.user_data.get(
-        "path",
-        []
-    )
-
-    current_node = get_node(path)
-
-    keyboard = []
-
-    # =====================================================
-    # STRUCTURE BUTTONS
-    # =====================================================
-
-    if isinstance(current_node, dict):
-
-        # Subject
-        if current_node.get("type") == "subject":
-
-            if current_node.get("lab"):
-
-                keyboard.append([
-                    KeyboardButton("Theoretical"),
-                    KeyboardButton("Practical")
-                ])
-
-            else:
-
-                keyboard.append([
-                    KeyboardButton("Theoretical")
-                ])
-
-        # Normal folder
-        else:
-
-            keys = list(current_node.keys())
-
-            for i in range(
-                0,
-                len(keys),
-                2
-            ):
-
-                row = [
-                    KeyboardButton(keys[i])
-                ]
-
-                if i + 1 < len(keys):
-
-                    row.append(
-                        KeyboardButton(
-                            keys[i + 1]
-                        )
-                    )
-
-                keyboard.append(row)
-
-    # =====================================================
-    # CURRENT LOCATION FILES
-    # =====================================================
-
-    path_key = get_path_key(path)
-
-    files = get_files(path_key)
-
-    for file in files:
-
-        if file["file_type"] == "document":
-
-            icon = "📄"
-
-        elif file["file_type"] == "photo":
-
-            icon = "🖼️"
-
-        elif file["file_type"] == "audio":
-
-            icon = "🎙️"
-
-        else:
-
-            icon = "📁"
-
-        keyboard.append([
-            KeyboardButton(
-                f"{icon} {file['name']}"
-            )
-        ])
-
-    # =====================================================
-    # BACK / HOME
-    # =====================================================
-
-    if path:
-
-        keyboard.append([
-            KeyboardButton("Back"),
-            KeyboardButton("Home")
-        ])
-
-    # =====================================================
-    # DELETE BUTTON - ADMIN ONLY
-    # =====================================================
-
-    if (
-        files
-        and is_admin(
-            update.effective_user.id
+    if not file_path.exists():
+        await update.message.reply_text(
+            "❌ الملف ده مش موجود فعليًا على التخزين."
         )
-    ):
-
-        keyboard.append([
-            KeyboardButton(
-                "🗑️ Delete File"
-            )
-        ])
-
-    reply_markup = ReplyKeyboardMarkup(
-        keyboard,
-        resize_keyboard=True
-    )
-
-    # =====================================================
-    # MESSAGE
-    # =====================================================
-
-    msg_text = (
-        f"{text}\n\n"
-        f"📍 Current Location:\n"
-        f"{path_key}"
-    )
-
-    if not files:
-
-        msg_text += (
-            "\n\n"
-            "📂 No files uploaded "
-            "in this location yet."
-        )
-
-    if is_admin(
-        update.effective_user.id
-    ):
-
-        msg_text += (
-            "\n\n"
-            "⚙️ Admin Mode:\n"
-            "Send a PDF, Image, Audio, "
-            "or Voice message now.\n"
-            "It will be saved in the "
-            "CURRENT LOCATION."
-        )
-
-    await update.message.reply_text(
-        msg_text,
-        reply_markup=reply_markup
-    )
-
-
-# =========================================================
-# HANDLE TEXT
-# =========================================================
-
-async def handle_message(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if (
-        not update.message
-        or not update.message.text
-    ):
         return
 
-    text = update.message.text.strip()
+    file_type = file["file_type"]
 
-    if "path" not in context.user_data:
+    try:
+        if file_type == "document":
+            with open(file_path, "rb") as f:
+                await update.message.reply_document(
+                    document=f,
+                    caption=file["name"]
+                )
 
-        context.user_data["path"] = []
+        elif file_type == "photo":
+            with open(file_path, "rb") as f:
+                await update.message.reply_photo(
+                    photo=f,
+                    caption=file["name"]
+                )
 
-    path = context.user_data["path"]
+        elif file_type == "audio":
+            with open(file_path, "rb") as f:
+                await update.message.reply_audio(
+                    audio=f,
+                    caption=file["name"]
+                )
+
+        elif file_type == "voice":
+            with open(file_path, "rb") as f:
+                await update.message.reply_voice(
+                    voice=f
+                )
+
+        else:
+            with open(file_path, "rb") as f:
+                await update.message.reply_document(
+                    document=f,
+                    caption=file["name"]
+                )
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ حصل خطأ أثناء إرسال الملف:\n{e}"
+        )
+
+
+# =========================================================
+# DOWNLOAD / SAVE MEDIA
+# =========================================================
+
+async def handle_media_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.effective_user.id
+
+    if not is_admin(user_id):
+        await update.message.reply_text(
+            "❌ إضافة الملفات متاحة للأدمنز فقط."
+        )
+        return
+
+    path = context.user_data.get("path", [])
+    path_key = get_path_key(path)
+
+    # -------------------------
+    # DOCUMENT
+    # -------------------------
+
+    if update.message.document:
+        telegram_file = update.message.document
+
+        filename = telegram_file.file_name or "document"
+        filename = sanitize_filename(filename)
+
+        file_type = "document"
+
+        telegram_obj = await context.bot.get_file(
+            telegram_file.file_id
+        )
+
+    # -------------------------
+    # PHOTO
+    # -------------------------
+
+    elif update.message.photo:
+        telegram_file = update.message.photo[-1]
+
+        filename = (
+            f"photo_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        )
+
+        file_type = "photo"
+
+        telegram_obj = await context.bot.get_file(
+            telegram_file.file_id
+        )
+
+    # -------------------------
+    # AUDIO
+    # -------------------------
+
+    elif update.message.audio:
+        telegram_file = update.message.audio
+
+        filename = (
+            telegram_file.file_name
+            or f"audio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+        )
+
+        filename = sanitize_filename(filename)
+
+        file_type = "audio"
+
+        telegram_obj = await context.bot.get_file(
+            telegram_file.file_id
+        )
+
+    # -------------------------
+    # VOICE
+    # -------------------------
+
+    elif update.message.voice:
+        telegram_file = update.message.voice
+
+        filename = (
+            f"voice_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.ogg"
+        )
+
+        file_type = "voice"
+
+        telegram_obj = await context.bot.get_file(
+            telegram_file.file_id
+        )
+
+    else:
+        return
+
+    # -------------------------
+    # DUPLICATE CHECK
+    # -------------------------
+
+    if file_exists(path_key, filename):
+        await update.message.reply_text(
+            f"❌ فيه ملف بنفس الاسم موجود بالفعل هنا:\n\n"
+            f"📄 {filename}\n\n"
+            f"غير اسم الملف وحاول تاني."
+        )
+        return
+
+    # -------------------------
+    # STORAGE DIRECTORY
+    # -------------------------
+
+    directory = get_storage_directory(path)
+
+    file_path = directory / filename
+
+    # -------------------------
+    # DOWNLOAD TO RAILWAY VOLUME
+    # -------------------------
+
+    try:
+        await telegram_obj.download_to_drive(
+            custom_path=str(file_path)
+        )
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ حصل خطأ أثناء حفظ الملف:\n{e}"
+        )
+        return
+
+    # -------------------------
+    # DATABASE
+    # -------------------------
+
+    try:
+        save_file_record(
+            path_key=path_key,
+            name=filename,
+            file_path=file_path,
+            file_type=file_type,
+        )
+
+    except Exception as e:
+
+        try:
+            file_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        await update.message.reply_text(
+            f"❌ حصل خطأ في قاعدة البيانات:\n{e}"
+        )
+
+        return
+
+    await update.message.reply_text(
+        f"✅ تم حفظ الملف بنجاح!\n\n"
+        f"📄 {filename}\n\n"
+        f"📍 المكان:\n{path_key}"
+    )
+
+    await send_menu(update, context)
+
+
+# =========================================================
+# TEXT HANDLER
+# =========================================================
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    text = update.message.text
+
+    user_id = update.effective_user.id
+
+    path = context.user_data.get("path", [])
+    path_key = get_path_key(path)
+
+    # =====================================================
+    # DELETE MODE
+    # =====================================================
+
+    if context.user_data.get("deleting"):
+
+        if not is_admin(user_id):
+            context.user_data["deleting"] = False
+            await update.message.reply_text(
+                "❌ غير مسموح."
+            )
+            return
+
+        if text == "🔙 Cancel Delete":
+            context.user_data["deleting"] = False
+            await send_menu(update, context)
+            return
+
+        if text == "🏠 Home":
+            context.user_data["path"] = []
+            context.user_data["deleting"] = False
+            await send_menu(update, context)
+            return
+
+        if text.startswith("🗑️ "):
+
+            filename = text[3:].strip()
+
+            files = get_files(path_key)
+
+            selected = None
+
+            for file in files:
+                if file["name"] == filename:
+                    selected = file
+                    break
+
+            if not selected:
+                await update.message.reply_text(
+                    "❌ الملف ده مش موجود في المكان الحالي."
+                )
+                return
+
+            delete_file_record(selected["id"])
+
+            context.user_data["deleting"] = False
+
+            await update.message.reply_text(
+                f"✅ تم حذف الملف:\n\n"
+                f"📄 {filename}"
+            )
+
+            await send_menu(update, context)
+
+            return
 
     # =====================================================
     # HOME
     # =====================================================
 
-    if text in ["Home", "/start"]:
+    if text == "🏠 Home":
 
         context.user_data["path"] = []
-        context.user_data["deleting_mode"] = False
+        context.user_data["deleting"] = False
 
-        await send_menu(
-            update,
-            context,
-            "Home Menu:"
-        )
+        await send_menu(update, context)
 
         return
 
@@ -772,258 +799,97 @@ async def handle_message(
     # BACK
     # =====================================================
 
-    if text == "Back":
+    if text == "🔙 Back":
 
         if path:
-
             path.pop()
 
         context.user_data["path"] = path
-        context.user_data["deleting_mode"] = False
+        context.user_data["deleting"] = False
 
-        await send_menu(
-            update,
-            context,
-            "Navigating back:"
-        )
+        await send_menu(update, context)
 
         return
 
     # =====================================================
-    # DELETE MENU
+    # DELETE FILE
     # =====================================================
 
     if text == "🗑️ Delete File":
 
         if not is_admin(user_id):
+            await update.message.reply_text(
+                "❌ الأمر ده للأدمنز فقط."
+            )
             return
-
-        path_key = get_path_key(path)
 
         files = get_files(path_key)
 
         if not files:
-
             await update.message.reply_text(
-                "⚠️ No files available to delete."
+                "❌ مفيش ملفات في المكان الحالي."
             )
-
             return
 
-        context.user_data[
-            "deleting_mode"
-        ] = True
+        context.user_data["deleting"] = True
 
-        delete_keyboard = []
-
-        for i in range(
-            0,
-            len(files),
-            2
-        ):
-
-            row = [
-                KeyboardButton(
-                    f"Delete: {files[i]['name']}"
-                )
-            ]
-
-            if i + 1 < len(files):
-
-                row.append(
-                    KeyboardButton(
-                        f"Delete: {files[i + 1]['name']}"
-                    )
-                )
-
-            delete_keyboard.append(row)
-
-        delete_keyboard.append([
-            KeyboardButton("Back"),
-            KeyboardButton("Home")
-        ])
-
-        await update.message.reply_text(
-            "🗑️ Select the file you want to delete:",
-            reply_markup=ReplyKeyboardMarkup(
-                delete_keyboard,
-                resize_keyboard=True
-            )
-        )
+        await send_menu(update, context)
 
         return
 
     # =====================================================
-    # DELETE SELECTED FILE
+    # FILE OPENING
     # =====================================================
 
-    if (
-        text.startswith("Delete: ")
-        and context.user_data.get(
-            "deleting_mode"
-        )
-    ):
+    if text.startswith("📄 "):
 
-        if not is_admin(user_id):
-            return
+        filename = text[3:].strip()
 
-        file_name = text[
-            len("Delete: "):
-        ]
+        files = get_files(path_key)
 
-        path_key = get_path_key(path)
+        selected = None
 
-        deleted = delete_file(
-            path_key,
-            file_name
-        )
-
-        context.user_data[
-            "deleting_mode"
-        ] = False
-
-        if deleted:
-
-            await update.message.reply_text(
-                f"🗑️ Deleted successfully:\n"
-                f"{file_name}"
-            )
-
-        else:
-
-            await update.message.reply_text(
-                "⚠️ File was not found."
-            )
-
-        await send_menu(
-            update,
-            context,
-            "Updated list:"
-        )
-
-        return
-
-    # =====================================================
-    # OPEN FILE
-    # =====================================================
-
-    path_key = get_path_key(path)
-
-    files = get_files(path_key)
-
-    for file in files:
-
-        if file["name"] in text:
-
-            if file["file_type"] == "document":
-
-                await update.message.reply_document(
-                    document=file["file_id"]
-                )
-
-            elif file["file_type"] == "photo":
-
-                await update.message.reply_photo(
-                    photo=file["file_id"]
-                )
-
-            elif file["file_type"] == "audio":
-
-                await update.message.reply_audio(
-                    audio=file["file_id"]
-                )
-
-            return
-
-    # =====================================================
-    # NAVIGATION
-    # =====================================================
-
-    current_node = get_node(path)
-
-    matched_key = None
-
-    if isinstance(current_node, dict):
-
-        for key in current_node.keys():
-
-            if (
-                key.strip() == text
-                and key not in [
-                    "type",
-                    "lab"
-                ]
-            ):
-
-                matched_key = key
+        for file in files:
+            if file["name"] == filename:
+                selected = file
                 break
 
-    if matched_key:
+        if selected:
+            await send_saved_file(update, selected)
 
-        item = current_node[
-            matched_key
-        ]
+        return
 
-        path.append(matched_key)
+    # =====================================================
+    # FILES BUTTON
+    # =====================================================
 
-        context.user_data[
-            "path"
-        ] = path
+    if text == "📂 Files":
 
-        # -------------------------------------------------
-        # SUBJECT
-        # -------------------------------------------------
+        files = get_files(path_key)
 
-        if (
-            isinstance(item, dict)
-            and item.get("type") == "subject"
-        ):
-
-            keyboard = []
-
-            if item.get("lab"):
-
-                keyboard.append([
-                    KeyboardButton(
-                        "Theoretical"
-                    ),
-                    KeyboardButton(
-                        "Practical"
-                    )
-                ])
-
-            else:
-
-                keyboard.append([
-                    KeyboardButton(
-                        "Theoretical"
-                    )
-                ])
-
-            keyboard.append([
-                KeyboardButton("Back"),
-                KeyboardButton("Home")
-            ])
-
+        if not files:
             await update.message.reply_text(
-                f"Select component for "
-                f"{matched_key}:",
-                reply_markup=ReplyKeyboardMarkup(
-                    keyboard,
-                    resize_keyboard=True
-                )
+                "❌ مفيش ملفات هنا."
             )
-
             return
 
-        # -------------------------------------------------
-        # NORMAL FOLDER
-        # -------------------------------------------------
+        keyboard = []
 
-        await send_menu(
-            update,
-            context,
-            f"Selected: {matched_key}"
+        for file in files:
+            keyboard.append([f"📄 {file['name']}"])
+
+        if is_admin(user_id):
+            keyboard.append(["🗑️ Delete File"])
+
+        keyboard.append(["🔙 Back"])
+        keyboard.append(["🏠 Home"])
+
+        await update.message.reply_text(
+            f"📂 Files in:\n{path_key}",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard,
+                resize_keyboard=True
+            ),
         )
 
         return
@@ -1032,213 +898,55 @@ async def handle_message(
     # THEORETICAL / PRACTICAL
     # =====================================================
 
-    if text in [
-        "Theoretical",
-        "Practical"
-    ]:
+    if text == "📚 Theoretical":
 
-        path.append(text)
+        context.user_data["path"] = path + ["Theoretical"]
 
-        context.user_data[
-            "path"
-        ] = path
-
-        await send_menu(
-            update,
-            context,
-            f"Section: {text}"
-        )
+        await send_menu(update, context)
 
         return
 
+    if text == "🔬 Practical":
 
-# =========================================================
-# HANDLE MEDIA UPLOAD
-# =========================================================
+        context.user_data["path"] = path + ["Practical"]
 
-async def handle_media_upload(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    user_id = update.effective_user.id
-
-    # =====================================================
-    # ONLY ADMINS CAN UPLOAD
-    # =====================================================
-
-    if not is_admin(user_id):
-        return
-
-    # =====================================================
-    # GET CURRENT LOCATION
-    # =====================================================
-
-    path = context.user_data.get(
-        "path",
-        []
-    )
-
-    # THIS IS THE IMPORTANT PART:
-    # The file is saved EXACTLY where
-    # the admin is currently standing.
-
-    path_key = get_path_key(path)
-
-    file_id = None
-    file_name = None
-    file_type = None
-
-    # =====================================================
-    # PDF / DOCUMENT
-    # =====================================================
-
-    if update.message.document:
-
-        file_id = update.message.document.file_id
-
-        file_name = (
-            update.message.document.file_name
-            or "Document"
-        )
-
-        # PDF stays a Telegram DOCUMENT
-        file_type = "document"
-
-    # =====================================================
-    # PHOTO
-    # =====================================================
-
-    elif update.message.photo:
-
-        file_id = (
-            update.message.photo[-1].file_id
-        )
-
-        file_name = (
-            update.message.caption
-            or (
-                f"Photo_"
-                f"{len(get_files(path_key)) + 1}"
-                f".jpg"
-            )
-        )
-
-        file_type = "photo"
-
-    # =====================================================
-    # AUDIO
-    # =====================================================
-
-    elif update.message.audio:
-
-        file_id = update.message.audio.file_id
-
-        file_name = (
-            update.message.audio.file_name
-            or update.message.caption
-            or (
-                f"Audio_"
-                f"{len(get_files(path_key)) + 1}"
-                f".mp3"
-            )
-        )
-
-        file_type = "audio"
-
-    # =====================================================
-    # VOICE
-    # =====================================================
-
-    elif update.message.voice:
-
-        file_id = update.message.voice.file_id
-
-        file_name = (
-            update.message.caption
-            or (
-                f"Voice_"
-                f"{len(get_files(path_key)) + 1}"
-            )
-        )
-
-        file_type = "audio"
-
-    else:
+        await send_menu(update, context)
 
         return
 
     # =====================================================
-    # PREVENT DUPLICATE NAME
+    # NAVIGATION
     # =====================================================
 
-    if file_exists(
-        path_key,
-        file_name
-    ):
+    node = get_current_node(path)
 
-        await update.message.reply_text(
-            "⚠️ A file with this name "
-            "already exists in this location.\n\n"
-            f"File: {file_name}\n\n"
-            "Please rename the file and "
-            "send it again."
-        )
+    if isinstance(node, dict):
 
-        return
+        if text in node:
+
+            context.user_data["path"] = path + [text]
+            context.user_data["deleting"] = False
+
+            await send_menu(update, context)
+
+            return
 
     # =====================================================
-    # SAVE
-    # =====================================================
-
-    try:
-
-        save_file(
-            path_key=path_key,
-            file_name=file_name,
-            file_id=file_id,
-            file_type=file_type
-        )
-
-    except sqlite3.IntegrityError:
-
-        await update.message.reply_text(
-            "⚠️ A file with this name "
-            "already exists here."
-        )
-
-        return
-
-    except Exception as error:
-
-        logger.exception(
-            "Error while saving file: %s",
-            error
-        )
-
-        await update.message.reply_text(
-            "❌ An error occurred while "
-            "saving the file."
-        )
-
-        return
-
-    # =====================================================
-    # SUCCESS
+    # UNKNOWN TEXT
     # =====================================================
 
     await update.message.reply_text(
-        "✅ File saved successfully!\n\n"
-        f"📄 {file_name}\n"
-        f"📍 Saved in:\n{path_key}"
+        "اختار من الأزرار الموجودة تحت 👇"
     )
 
-    # Show current location again
-    await send_menu(
-        update,
-        context,
-        "Updated Folder Status:"
-    )
+
+# =========================================================
+# ERROR HANDLER
+# =========================================================
+
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+
+    print("ERROR:", context.error)
 
 
 # =========================================================
@@ -1247,94 +955,49 @@ async def handle_media_upload(
 
 def main():
 
-    # =====================================================
-    # CHECK TOKEN
-    # =====================================================
-
-    if not BOT_TOKEN:
-
-        raise RuntimeError(
-            "BOT_TOKEN environment variable "
-            "is missing."
-        )
-
-    # =====================================================
-    # DATABASE
-    # =====================================================
-
     init_database()
 
-    # =====================================================
-    # APPLICATION
-    # =====================================================
-
-    app = (
-        ApplicationBuilder()
+    application = (
+        Application.builder()
         .token(BOT_TOKEN)
         .build()
     )
 
-    # =====================================================
     # /start
-    # =====================================================
-
-    app.add_handler(
-        CommandHandler(
-            "start",
-            start
-        )
+    application.add_handler(
+        CommandHandler("start", start)
     )
 
-    # =====================================================
-    # MEDIA
-    #
-    # PDFs/Documents
-    # Photos
-    # Audio
-    # Voice
-    #
-    # ALL go to handle_media_upload.
-    # =====================================================
-
-    media_filter = (
-        filters.Document.ALL
-        | filters.PHOTO
-        | filters.AUDIO
-        | filters.VOICE
-    )
-
-    app.add_handler(
+    # Documents / Photos / Audio / Voice
+    application.add_handler(
         MessageHandler(
-            media_filter,
+            filters.Document.ALL
+            | filters.PHOTO
+            | filters.AUDIO
+            | filters.VOICE,
             handle_media_upload
         )
     )
 
-    # =====================================================
-    # TEXT
-    # =====================================================
-
-    app.add_handler(
+    # Text
+    application.add_handler(
         MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             handle_message
         )
     )
 
-    # =====================================================
-    # RUN
-    # =====================================================
+    application.add_error_handler(error_handler)
 
-    logger.info(
-        "🤖 Physical Therapy Academic Bot is running..."
+    print("Bot is starting...")
+    print("Admins:", ADMIN_IDS)
+    print("Database:", DB_PATH)
+    print("Files directory:", FILES_DIR)
+
+    application.run_polling(
+        drop_pending_updates=True
     )
 
-    app.run_polling()
-
-
-# =========================================================
-# START PROGRAM
-# =========================================================
 
 if __name__ == "__main__":
     main()
