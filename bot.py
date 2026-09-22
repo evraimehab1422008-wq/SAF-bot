@@ -19,22 +19,17 @@ from telegram.ext import (
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+CHANNEL_ID = -1004459581470  # ID قناة التخزين الخاصة بك
+
 DB_PATH = os.getenv(
     "DB_PATH",
     "/data/bot_database.db"
 )
 
-STORAGE_ROOT = Path(
-    os.getenv(
-        "STORAGE_ROOT",
-        "/data/storage"
-    )
-)
-
 ADMIN_IDS = {
     6448008082,
     8791458947,
-    8881717605, 1343988861
+    8881717605, 1343988861, 1892584502
 }
 
 # =========================================================
@@ -595,20 +590,6 @@ def sanitize_filename(name):
     return name
 
 
-def storage_directory(path):
-    directory = STORAGE_ROOT
-
-    for part in path:
-        directory = directory / sanitize_filename(part)
-
-    directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    return directory
-
-
 def get_node(path):
     node = STRUCTURE
 
@@ -669,7 +650,7 @@ def file_exists(path, name):
 def add_file(
     path,
     name,
-    file_path,
+    file_id_ref,
     file_type,
 ):
     conn = get_db()
@@ -691,7 +672,7 @@ def add_file(
             (
                 make_path_key(path),
                 name,
-                str(file_path),
+                str(file_id_ref),
                 file_type,
                 datetime.utcnow().isoformat(),
             ),
@@ -713,19 +694,6 @@ def add_file(
 def remove_file(file_id):
     conn = get_db()
 
-    row = conn.execute(
-        """
-        SELECT file_path
-        FROM files
-        WHERE id = ?
-        """,
-        (file_id,),
-    ).fetchone()
-
-    if not row:
-        conn.close()
-        return False
-
     conn.execute(
         """
         DELETE FROM files
@@ -736,13 +704,6 @@ def remove_file(file_id):
 
     conn.commit()
     conn.close()
-
-    try:
-        Path(row[0]).unlink(
-            missing_ok=True
-        )
-    except Exception:
-        pass
 
     return True
 
@@ -1208,41 +1169,41 @@ async def send_saved_file(
     update,
     row,
 ):
-    _, name, file_path, file_type = row
+    _, name, file_id_ref, file_type = row
 
     try:
 
         if file_type == "document":
 
             await update.effective_message.reply_document(
-                document=file_path,
+                document=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "photo":
 
             await update.effective_message.reply_photo(
-                photo=file_path,
+                photo=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "audio":
 
             await update.effective_message.reply_audio(
-                audio=file_path,
+                audio=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "voice":
 
             await update.effective_message.reply_voice(
-                voice=file_path,
+                voice=file_id_ref,
             )
 
         else:
 
             await update.effective_message.reply_document(
-                document=file_path,
+                document=file_id_ref,
                 caption=name,
             )
 
@@ -1539,31 +1500,22 @@ async def save_document(
 
         return
 
-    target = (
-        storage_directory(path)
-        / name
-    )
-
     try:
 
-        telegram_file = (
-            await document.get_file()
+        channel_msg = await context.bot.send_document(
+            chat_id=CHANNEL_ID,
+            document=document.file_id,
+            caption=f"📄 {name}"
         )
 
-        await telegram_file.download_to_drive(
-            custom_path=str(target)
-        )
+        channel_file_id = channel_msg.document.file_id
 
         if not add_file(
             path,
             name,
-            target,
+            channel_file_id,
             "document",
         ):
-
-            target.unlink(
-                missing_ok=True
-            )
 
             await update.effective_message.reply_text(
                 f'❌ File "{name}" already exists.'
@@ -1581,10 +1533,6 @@ async def save_document(
         )
 
     except Exception as error:
-
-        target.unlink(
-            missing_ok=True
-        )
 
         await update.effective_message.reply_text(
             f"❌ Upload failed:\n{error}"
@@ -1667,31 +1615,22 @@ async def save_photo(
 
         return
 
-    target = (
-        storage_directory(path)
-        / name
-    )
-
     try:
 
-        telegram_file = (
-            await photo.get_file()
+        channel_msg = await context.bot.send_photo(
+            chat_id=CHANNEL_ID,
+            photo=photo.file_id,
+            caption=f"🖼️ {name}"
         )
 
-        await telegram_file.download_to_drive(
-            custom_path=str(target)
-        )
+        channel_file_id = channel_msg.photo[-1].file_id
 
         if not add_file(
             path,
             name,
-            target,
+            channel_file_id,
             "photo",
         ):
-
-            target.unlink(
-                missing_ok=True
-            )
 
             await message.reply_text(
                 f'❌ File "{name}" already exists.'
@@ -1709,10 +1648,6 @@ async def save_photo(
         )
 
     except Exception as error:
-
-        target.unlink(
-            missing_ok=True
-        )
 
         await message.reply_text(
             f"❌ Upload failed:\n{error}"
@@ -1761,85 +1696,77 @@ async def save_audio_or_voice(
         update.effective_message
     )
 
-    if message.audio:
+    try:
 
-        telegram_file = (
-            message.audio
-        )
+        if message.audio:
 
-        name = (
-            message.audio.file_name
-            or (
-                "audio_"
+            telegram_file = (
+                message.audio
+            )
+
+            name = (
+                message.audio.file_name
+                or (
+                    "audio_"
+                    + datetime.now().strftime(
+                        "%Y%m%d_%H%M%S"
+                    )
+                    + ".mp3"
+                )
+            )
+
+            file_type = "audio"
+
+            name = sanitize_filename(name)
+
+            if file_exists(path, name):
+                await message.reply_text(f'❌ File "{name}" already exists.')
+                return
+
+            channel_msg = await context.bot.send_audio(
+                chat_id=CHANNEL_ID,
+                audio=telegram_file.file_id,
+                caption=f"🎵 {name}"
+            )
+            channel_file_id = channel_msg.audio.file_id
+
+        elif message.voice:
+
+            telegram_file = (
+                message.voice
+            )
+
+            name = (
+                "voice_"
                 + datetime.now().strftime(
                     "%Y%m%d_%H%M%S"
                 )
-                + ".mp3"
+                + ".ogg"
             )
-        )
 
-        file_type = "audio"
+            file_type = "voice"
 
-    elif message.voice:
+            name = sanitize_filename(name)
 
-        telegram_file = (
-            message.voice
-        )
+            if file_exists(path, name):
+                await message.reply_text(f'❌ File "{name}" already exists.')
+                return
 
-        name = (
-            "voice_"
-            + datetime.now().strftime(
-                "%Y%m%d_%H%M%S"
+            channel_msg = await context.bot.send_voice(
+                chat_id=CHANNEL_ID,
+                voice=telegram_file.file_id,
             )
-            + ".ogg"
-        )
+            channel_file_id = channel_msg.voice.file_id
 
-        file_type = "voice"
-
-    else:
-
-        return
-
-    name = sanitize_filename(
-        name
-    )
-
-    if file_exists(
-        path,
-        name,
-    ):
-
-        await message.reply_text(
-            f'❌ File "{name}" already exists.'
-        )
-
-        return
-
-    target = (
-        storage_directory(path)
-        / name
-    )
-
-    try:
-
-        telegram_file = (
-            await telegram_file.get_file()
-        )
-
-        await telegram_file.download_to_drive(
-            custom_path=str(target)
-        )
+        else:
+            return
 
         if not add_file(
             path,
             name,
-            target,
+            channel_file_id,
             file_type,
         ):
-
-            target.unlink(
-                missing_ok=True
-            )
 
             await message.reply_text(
                 f'❌ File "{name}" already exists.'
@@ -1857,10 +1784,6 @@ async def save_audio_or_voice(
         )
 
     except Exception as error:
-
-        target.unlink(
-            missing_ok=True
-        )
 
         await message.reply_text(
             f"❌ Upload failed:\n{error}"
@@ -1967,11 +1890,6 @@ def main():
     Path(
         DB_PATH
     ).parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    STORAGE_ROOT.mkdir(
         parents=True,
         exist_ok=True,
     )
