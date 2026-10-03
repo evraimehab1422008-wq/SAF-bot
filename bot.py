@@ -1,9 +1,11 @@
 import os
 import re
 import sqlite3
+import asyncio
 from pathlib import Path
 from datetime import datetime
 
+from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -18,19 +20,85 @@ from telegram.ext import (
 # =========================================================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+VERCEL_URL = os.getenv("VERCEL_URL")
 
 CHANNEL_ID = -1004459581470  # ID قناة التخزين الخاصة بك
 
-DB_PATH = os.getenv(
-    "DB_PATH",
-    "/data/bot_database.db"
-)
+DB_PATH = os.getenv("DB_PATH", "/tmp/bot_database.db")
 
 ADMIN_IDS = {
     6448008082,
     8791458947,
-    8881717605, 1343988861, 1892584502
+    8881717605,
+    1343988861,
+    1892584502,
 }
+
+# =========================================================
+# FLASK & TELEGRAM SETUP
+# =========================================================
+
+flask_app = Flask(__name__)
+
+telegram_app = None
+
+if BOT_TOKEN:
+    telegram_app = Application.builder().token(BOT_TOKEN).build()
+
+
+async def init_telegram_app():
+    """تهيئة التطبيق وإضافة الـ Handlers"""
+    if not telegram_app:
+        return
+
+    # إضافة الـ Handlers
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(MessageHandler(filters.ALL, on_message))
+
+    await telegram_app.initialize()
+
+    # ضبط الـ Webhook إذا كانت البيئة على Vercel
+    if VERCEL_URL:
+        url = VERCEL_URL if VERCEL_URL.startswith("http") else f"https://{VERCEL_URL}"
+        webhook_url = f"{url}/api/webhook"
+        await telegram_app.bot.set_webhook(url=webhook_url)
+
+
+# تشغيل التهيئة عند بدء التطبيق
+loop = asyncio.get_event_loop()
+if loop.is_running():
+    asyncio.ensure_future(init_telegram_app())
+else:
+    loop.run_until_complete(init_telegram_app())
+
+# =========================================================
+# WEBHOOK ENDPOINTS
+# =========================================================
+
+
+@flask_app.route("/", methods=["GET"])
+def index():
+    return "PT Materials Bot is active and running!"
+
+
+@flask_app.route("/api/webhook", methods=["POST"])
+def webhook():
+    if not telegram_app:
+        return "Bot token missing", 500
+
+    if request.method == "POST":
+        req_data = request.get_json(force=True)
+        update = Update.de_json(req_data, telegram_app.bot)
+
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.ensure_future(telegram_app.process_update(update))
+        else:
+            loop.run_until_complete(telegram_app.process_update(update))
+
+        return "OK", 200
+    return "Method Not Allowed", 405
+
 
 # =========================================================
 # BUTTONS
@@ -53,478 +121,383 @@ SECTION_NAMES = {
 # =========================================================
 
 STRUCTURE = {
-
     # =====================================================
     # LEVEL 1
     # =====================================================
-
     "🔴 Level 1": {
-
         "Semester 1": {
-
             "🦴 Anatomy I": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🧪 Biochemistry I": {
                 "type": "subject",
                 "lab": False,
             },
-
             "🔬 Histology": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🫀 Physiology I": {
                 "type": "subject",
                 "lab": True,
             },
         },
-
         "Semester 2": {
-
             "🦴 Anatomy II": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🧪 Biochemistry II": {
                 "type": "subject",
                 "lab": False,
             },
-
             "🫀 Physiology II": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🏃 Kinesiology I": {
                 "type": "subject",
                 "lab": True,
             },
-
             "⚡ Biophysics": {
                 "type": "subject",
                 "lab": True,
             },
         },
     },
-
     # =====================================================
     # LEVEL 2
     # =====================================================
-
     "🟠 Level 2": {
-
         "Semester 3": {
-
             "🧠 Neuroanatomy": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🦾 Biomechanics II": {
                 "type": "subject",
                 "lab": False,
             },
-
             "⚡ Electrotherapy I": {
                 "type": "subject",
                 "lab": True,
             },
-
             "📋 Evaluation I": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🧠 Neurophysiology": {
                 "type": "subject",
                 "lab": False,
             },
-
             "🏋️ Therapeutic Ex. I": {
                 "type": "subject",
                 "lab": True,
             },
         },
-
         "Semester 4": {
-
             "🦾 Biomechanics III": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🩺 Community Health": {
                 "type": "subject",
                 "lab": False,
             },
-
             "📋 Evaluation II": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🫀 Exercise Physiology": {
                 "type": "subject",
                 "lab": False,
             },
-
             "🔬 Pathology": {
                 "type": "subject",
                 "lab": False,
             },
-
             "👐 Manual Therapy": {
                 "type": "subject",
                 "lab": True,
             },
-
             "⚡ Electrotherapy II": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🦴 Anatomy IV": {
                 "type": "subject",
                 "lab": True,
             },
-
             "⚖️ Legal & Ethics": {
                 "type": "subject",
                 "lab": False,
             },
         },
     },
-
     # =====================================================
     # LEVEL 3
     # =====================================================
-
     "🟡 Level 3": {
-
         "Semester 5": {
-
             "🦾 Biomechanics IV": {
                 "type": "subject",
                 "lab": True,
             },
-
             "🌊 Hydrotherapy": {
                 "type": "subject",
                 "lab": True,
             },
-
             "📊 Research & Statistics": {
                 "type": "subject",
                 "lab": False,
             },
-
             "💼 Management & Decision": {
                 "type": "subject",
                 "lab": False,
             },
-
             "🩺 Pathophysiology": {
                 "type": "subject",
                 "lab": False,
             },
-
             "💊 Pharmacology": {
                 "type": "subject",
                 "lab": False,
             },
-
             "♿ Rehabilitation": {
                 "type": "subject",
                 "lab": False,
             },
         },
     },
-
     # =====================================================
     # TRACKS
     # =====================================================
-
     "🟢 Tracks": {
-
         # =================================================
         # BATNA
         # =================================================
-
         "🫀 Batna Track": {
-
             '🫁 PH pulmonary "CAPU324"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🩺 Medicine pulmonary "MED.314PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '👴 Geriatric rehabilitation "CAPU326"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '❤️ PH cardio "CAPU322"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🫀 Medicine cardio "MED.312PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🏥 Hospital "CAPU312+CAPU314"': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
-
             '🥗 Nutrition "BIOC312PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🩻 Radiology "RAD.312PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🧠 Psychology "PSYCH 312PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
         },
-
         # =================================================
         # GYNA
         # =================================================
-
         "🤰 Gyna Track": {
-
             '🩹 First Aid "FIRS 411E"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🪑 Ergonomics "BIOM 411"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🔪 Ph Surgery "PT421 / SURG"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🏥 General Surgery "SURG.411"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🤰 Ph Gyna "GYPD 421PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🩺 Med Gyna "MED 411PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '📚 Evidence "PT.441"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🏥 Hospital Surgery "SURG PT411"': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
-
             '🤰 Hospital Gyna "GYPD.411"': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
         },
-
         # =================================================
         # ORTHO
         # =================================================
-
         "🦴 Ortho Track": {
-
             '🦴 PH "MUSK424"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🦿 Orthoses & Prosthesis': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🔎 Examination "MUSK422"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '⚽ Sport Physical Therapy': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🏥 Hospital "MUSK412"': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
-
             '🔪 Surgery "SURGPT412"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🩺 Medicine "MED412PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🩻 Radiology "RAD.412PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
         },
-
         # =================================================
         # NEURO
         # =================================================
-
         "🧠 Neuro Track": {
-
             '🧠 Topic "NEUR526"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🏃 Motor "PT541"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🩺 medicine "MED512PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🦴 spinal "NEUR524"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🧠 Neurosurgery "SURG512PT"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🧠 PH "NEUR.522"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '📈 EMG "NEUR.525"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🏥 Hospital "NEUR512" + Spinal sec': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
         },
-
         # =================================================
         # PEDS
         # =================================================
-
         "👶 Peds Track": {
-
             '🏥 Hospital "GYPD 511"': {
                 "type": "subject",
                 "lecture": False,
                 "lab": True,
             },
-
             '👶 Ph "GYPD 525"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🩺 Surgery "GYPD 527"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '👶 Motor development "GYPD 521"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": True,
             },
-
             '🗣️ Speech Therapy "GYPD 529"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '👐 Occupational Therapy "OT.511"': {
                 "type": "subject",
                 "lecture": True,
                 "lab": False,
             },
-
             '🩺 Medicine "MED.511PT"': {
                 "type": "subject",
                 "lecture": True,
@@ -538,6 +511,7 @@ STRUCTURE = {
 # DATABASE
 # =========================================================
 
+
 def get_db():
     Path(DB_PATH).parent.mkdir(
         parents=True,
@@ -546,7 +520,8 @@ def get_db():
 
     conn = sqlite3.connect(DB_PATH)
 
-    conn.execute("""
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             path_key TEXT NOT NULL,
@@ -556,7 +531,8 @@ def get_db():
             created_at TEXT NOT NULL,
             UNIQUE(path_key, name)
         )
-    """)
+    """
+    )
 
     conn.commit()
 
@@ -566,6 +542,7 @@ def get_db():
 # =========================================================
 # HELPERS
 # =========================================================
+
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
@@ -594,7 +571,6 @@ def get_node(path):
     node = STRUCTURE
 
     for part in path:
-
         if part in SECTION_NAMES:
             continue
 
@@ -656,7 +632,6 @@ def add_file(
     conn = get_db()
 
     try:
-
         conn.execute(
             """
             INSERT INTO files
@@ -683,11 +658,9 @@ def add_file(
         return True
 
     except sqlite3.IntegrityError:
-
         return False
 
     finally:
-
         conn.close()
 
 
@@ -723,9 +696,7 @@ def pair_buttons(items):
         len(items),
         2,
     ):
-        rows.append(
-            items[i:i + 2]
-        )
+        rows.append(items[i : i + 2])
 
     return rows
 
@@ -737,14 +708,10 @@ def format_subject_button(name):
     )
 
     if match:
-
         subject_name = match.group(1)
         code = match.group(2)
 
-        return (
-            f"{subject_name}\n"
-            f"{code}"
-        )
+        return f"{subject_name}\n" f"{code}"
 
     return name
 
@@ -756,11 +723,7 @@ def split_subject_title(name):
     )
 
     if match:
-
-        return (
-            f"{match.group(1)}\n"
-            f"{match.group(2)}"
-        )
+        return f"{match.group(1)}\n" f"{match.group(2)}"
 
     return name
 
@@ -787,36 +750,25 @@ def subject_sections(node):
 # HOME
 # =========================================================
 
+
 async def show_home(
     update,
     context,
 ):
     context.user_data.clear()
 
-    context.user_data[
-        "nav_path"
-    ] = []
+    context.user_data["nav_path"] = []
 
-    context.user_data[
-        "section"
-    ] = None
+    context.user_data["section"] = None
 
-    context.user_data[
-        "delete_mode"
-    ] = False
+    context.user_data["delete_mode"] = False
 
-    items = list(
-        STRUCTURE.keys()
-    )
+    items = list(STRUCTURE.keys())
 
     rows = pair_buttons(items)
 
-    if is_admin(
-        update.effective_user.id
-    ):
-        rows.append(
-            [DELETE]
-        )
+    if is_admin(update.effective_user.id):
+        rows.append([DELETE])
 
     await update.effective_message.reply_text(
         "🏠 Home",
@@ -828,6 +780,7 @@ async def show_home(
 # SHOW CURRENT LOCATION
 # =========================================================
 
+
 async def show_location(
     update,
     context,
@@ -837,56 +790,28 @@ async def show_location(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if section:
+        storage_path = nav_path + [section]
 
-        storage_path = (
-            nav_path
-            + [section]
-        )
-
-        files = get_files(
-            storage_path
-        )
+        files = get_files(storage_path)
 
         rows = []
 
         for _, name, _, _ in files:
+            rows.append([name])
 
-            rows.append(
-                [name]
-            )
+        if is_admin(update.effective_user.id) and files:
+            rows.append([DELETE])
 
-        if (
-            is_admin(
-                update.effective_user.id
-            )
-            and files
-        ):
-            rows.append(
-                [DELETE]
-            )
-
-        rows.append(
-            [BACK, HOME]
-        )
+        rows.append([BACK, HOME])
 
         if files:
-
-            message = (
-                f"{section}\n\n"
-                "📂 Choose a file:"
-            )
+            message = f"{section}\n\n" "📂 Choose a file:"
 
         else:
-
-            message = (
-                f"{section}\n\n"
-                "📂 No files here yet."
-            )
+            message = f"{section}\n\n" "📂 No files here yet."
 
         await update.effective_message.reply_text(
             message,
@@ -895,30 +820,16 @@ async def show_location(
 
         return
 
-    node = get_node(
-        nav_path
-    )
+    node = get_node(nav_path)
 
-    if (
-        isinstance(node, dict)
-        and node.get("type") == "subject"
-    ):
+    if isinstance(node, dict) and node.get("type") == "subject":
+        sections = subject_sections(node)
 
-        sections = subject_sections(
-            node
-        )
+        rows = pair_buttons(sections)
 
-        rows = pair_buttons(
-            sections
-        )
+        rows.append([BACK, HOME])
 
-        rows.append(
-            [BACK, HOME]
-        )
-
-        title = split_subject_title(
-            nav_path[-1]
-        )
+        title = split_subject_title(nav_path[-1])
 
         await update.effective_message.reply_text(
             title,
@@ -931,14 +842,10 @@ async def show_location(
         node,
         dict,
     ):
-        await update.effective_message.reply_text(
-            "❌ Navigation error."
-        )
+        await update.effective_message.reply_text("❌ Navigation error.")
         return
 
-    items = list(
-        node.keys()
-    )
+    items = list(node.keys())
 
     rows = []
 
@@ -947,43 +854,24 @@ async def show_location(
         len(items),
         2,
     ):
-
-        pair = items[i:i + 2]
+        pair = items[i : i + 2]
 
         display_pair = []
 
         for item in pair:
-
             item_node = node[item]
 
-            if (
-                isinstance(item_node, dict)
-                and item_node.get("type") == "subject"
-            ):
-                display_pair.append(
-                    format_subject_button(item)
-                )
+            if isinstance(item_node, dict) and item_node.get("type") == "subject":
+                display_pair.append(format_subject_button(item))
             else:
-                display_pair.append(
-                    item
-                )
+                display_pair.append(item)
 
-        rows.append(
-            display_pair
-        )
+        rows.append(display_pair)
 
     if nav_path:
-        rows.append(
-            [BACK, HOME]
-        )
+        rows.append([BACK, HOME])
 
-    title = (
-        split_subject_title(
-            nav_path[-1]
-        )
-        if nav_path
-        else "🏠 Home"
-    )
+    title = split_subject_title(nav_path[-1]) if nav_path else "🏠 Home"
 
     await update.effective_message.reply_text(
         title,
@@ -994,6 +882,7 @@ async def show_location(
 # =========================================================
 # START
 # =========================================================
+
 
 async def start(
     update,
@@ -1009,6 +898,7 @@ async def start(
 # BACK
 # =========================================================
 
+
 async def handle_back(
     update,
     context,
@@ -1018,19 +908,12 @@ async def handle_back(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if section:
+        context.user_data["section"] = None
 
-        context.user_data[
-            "section"
-        ] = None
-
-        context.user_data[
-            "delete_mode"
-        ] = False
+        context.user_data["delete_mode"] = False
 
         await show_location(
             update,
@@ -1040,20 +923,13 @@ async def handle_back(
         return
 
     if nav_path:
-
         nav_path = nav_path[:-1]
 
-        context.user_data[
-            "nav_path"
-        ] = nav_path
+        context.user_data["nav_path"] = nav_path
 
-        context.user_data[
-            "section"
-        ] = None
+        context.user_data["section"] = None
 
-        context.user_data[
-            "delete_mode"
-        ] = False
+        context.user_data["delete_mode"] = False
 
         await show_location(
             update,
@@ -1072,6 +948,7 @@ async def handle_back(
 # HOME BUTTON
 # =========================================================
 
+
 async def handle_home(
     update,
     context,
@@ -1086,16 +963,13 @@ async def handle_home(
 # DELETE MODE
 # =========================================================
 
+
 async def handle_delete_mode(
     update,
     context,
 ):
-    if not is_admin(
-        update.effective_user.id
-    ):
-        await update.effective_message.reply_text(
-            "❌ Admin only."
-        )
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text("❌ Admin only.")
         return
 
     nav_path = context.user_data.get(
@@ -1103,30 +977,18 @@ async def handle_delete_mode(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if section:
-
-        current_path = (
-            nav_path
-            + [section]
-        )
+        current_path = nav_path + [section]
 
     else:
-
         current_path = nav_path
 
-    files = get_files(
-        current_path
-    )
+    files = get_files(current_path)
 
     if not files:
-
-        await update.effective_message.reply_text(
-            "❌ No files to delete."
-        )
+        await update.effective_message.reply_text("❌ No files to delete.")
 
         await show_location(
             update,
@@ -1135,25 +997,16 @@ async def handle_delete_mode(
 
         return
 
-    context.user_data[
-        "delete_mode"
-    ] = True
+    context.user_data["delete_mode"] = True
 
-    context.user_data[
-        "delete_path"
-    ] = current_path
+    context.user_data["delete_path"] = current_path
 
     rows = []
 
     for _, name, _, _ in files:
+        rows.append([name])
 
-        rows.append(
-            [name]
-        )
-
-    rows.append(
-        [BACK, HOME]
-    )
+    rows.append([BACK, HOME])
 
     await update.effective_message.reply_text(
         "🗑️ Select the file you want to delete:",
@@ -1165,6 +1018,7 @@ async def handle_delete_mode(
 # SEND SAVED FILE
 # =========================================================
 
+
 async def send_saved_file(
     update,
     row,
@@ -1172,67 +1026,53 @@ async def send_saved_file(
     _, name, file_id_ref, file_type = row
 
     try:
-
         if file_type == "document":
-
             await update.effective_message.reply_document(
                 document=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "photo":
-
             await update.effective_message.reply_photo(
                 photo=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "audio":
-
             await update.effective_message.reply_audio(
                 audio=file_id_ref,
                 caption=name,
             )
 
         elif file_type == "voice":
-
             await update.effective_message.reply_voice(
                 voice=file_id_ref,
             )
 
         else:
-
             await update.effective_message.reply_document(
                 document=file_id_ref,
                 caption=name,
             )
 
     except Exception as error:
-
-        await update.effective_message.reply_text(
-            f"❌ Could not send file:\n{error}"
-        )
+        await update.effective_message.reply_text(f"❌ Could not send file:\n{error}")
 
 
 # =========================================================
 # HANDLE TEXT
 # =========================================================
 
+
 async def handle_text(
     update,
     context,
 ):
-    text = (
-        update.effective_message.text
-        or ""
-    )
+    text = update.effective_message.text or ""
 
-    user_id = (
-        update.effective_user.id
-    )
+    user_id = update.effective_user.id
 
     if text == HOME:
-
         await handle_home(
             update,
             context,
@@ -1241,10 +1081,7 @@ async def handle_text(
         return
 
     if text == BACK:
-
-        context.user_data[
-            "delete_mode"
-        ] = False
+        context.user_data["delete_mode"] = False
 
         await handle_back(
             update,
@@ -1254,7 +1091,6 @@ async def handle_text(
         return
 
     if text == DELETE:
-
         await handle_delete_mode(
             update,
             context,
@@ -1262,15 +1098,9 @@ async def handle_text(
 
         return
 
-    if context.user_data.get(
-        "delete_mode"
-    ):
-
+    if context.user_data.get("delete_mode"):
         if not is_admin(user_id):
-
-            context.user_data[
-                "delete_mode"
-            ] = False
+            context.user_data["delete_mode"] = False
 
             return
 
@@ -1279,38 +1109,25 @@ async def handle_text(
             [],
         )
 
-        files = get_files(
-            delete_path
-        )
+        files = get_files(delete_path)
 
         match = None
 
         for row in files:
-
             if row[1] == text:
-
                 match = row
                 break
 
         if not match:
-
-            await update.effective_message.reply_text(
-                "❌ File not found."
-            )
+            await update.effective_message.reply_text("❌ File not found.")
 
             return
 
-        remove_file(
-            match[0]
-        )
+        remove_file(match[0])
 
-        context.user_data[
-            "delete_mode"
-        ] = False
+        context.user_data["delete_mode"] = False
 
-        await update.effective_message.reply_text(
-            f'✅ File "{text}" deleted.'
-        )
+        await update.effective_message.reply_text(f'✅ File "{text}" deleted.')
 
         await show_location(
             update,
@@ -1324,32 +1141,17 @@ async def handle_text(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
-    node = get_node(
-        nav_path
-    )
+    node = get_node(nav_path)
 
-    if (
-        isinstance(node, dict)
-        and node.get("type") == "subject"
-    ):
-
-        sections = subject_sections(
-            node
-        )
+    if isinstance(node, dict) and node.get("type") == "subject":
+        sections = subject_sections(node)
 
         if text in sections:
+            context.user_data["section"] = text
 
-            context.user_data[
-                "section"
-            ] = text
-
-            context.user_data[
-                "delete_mode"
-            ] = False
+            context.user_data["delete_mode"] = False
 
             await show_location(
                 update,
@@ -1359,20 +1161,12 @@ async def handle_text(
             return
 
     if section:
+        storage_path = nav_path + [section]
 
-        storage_path = (
-            nav_path
-            + [section]
-        )
-
-        files = get_files(
-            storage_path
-        )
+        files = get_files(storage_path)
 
         for row in files:
-
             if row[1] == text:
-
                 await send_saved_file(
                     update,
                     row,
@@ -1380,23 +1174,12 @@ async def handle_text(
 
                 return
 
-    if (
-        isinstance(node, dict)
-        and text in node
-    ):
+    if isinstance(node, dict) and text in node:
+        nav_path = nav_path + [text]
 
-        nav_path = (
-            nav_path
-            + [text]
-        )
+        context.user_data["nav_path"] = nav_path
 
-        context.user_data[
-            "nav_path"
-        ] = nav_path
-
-        context.user_data[
-            "section"
-        ] = None
+        context.user_data["section"] = None
 
         await show_location(
             update,
@@ -1407,19 +1190,16 @@ async def handle_text(
 
     if isinstance(node, dict):
         for key in node.keys():
-            if text == key or text == format_subject_button(key) or text == split_subject_title(key):
-                nav_path = (
-                    nav_path
-                    + [key]
-                )
+            if (
+                text == key
+                or text == format_subject_button(key)
+                or text == split_subject_title(key)
+            ):
+                nav_path = nav_path + [key]
 
-                context.user_data[
-                    "nav_path"
-                ] = nav_path
+                context.user_data["nav_path"] = nav_path
 
-                context.user_data[
-                    "section"
-                ] = None
+                context.user_data["section"] = None
 
                 await show_location(
                     update,
@@ -1428,25 +1208,20 @@ async def handle_text(
 
                 return
 
-    await update.effective_message.reply_text(
-        "❌ Please choose a button."
-    )
+    await update.effective_message.reply_text("❌ Please choose a button.")
 
 
 # =========================================================
 # SAVE DOCUMENT
 # =========================================================
 
+
 async def save_document(
     update,
     context,
 ):
-    if not is_admin(
-        update.effective_user.id
-    ):
-        await update.effective_message.reply_text(
-            "❌ Admin only."
-        )
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text("❌ Admin only.")
         return
 
     nav_path = context.user_data.get(
@@ -1454,58 +1229,36 @@ async def save_document(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if not section:
-
         await update.effective_message.reply_text(
             "❌ Choose Theoretical or Practical first."
         )
 
         return
 
-    path = (
-        nav_path
-        + [section]
+    path = nav_path + [section]
+
+    document = update.effective_message.document
+
+    original_name = document.file_name or (
+        "file_" + datetime.now().strftime("%Y%m%d_%H%M%S")
     )
 
-    document = (
-        update.effective_message.document
-    )
-
-    original_name = (
-        document.file_name
-        or (
-            "file_"
-            + datetime.now().strftime(
-                "%Y%m%d_%H%M%S"
-            )
-        )
-    )
-
-    name = sanitize_filename(
-        original_name
-    )
+    name = sanitize_filename(original_name)
 
     if file_exists(
         path,
         name,
     ):
-
-        await update.effective_message.reply_text(
-            f'❌ File "{name}" already exists.'
-        )
+        await update.effective_message.reply_text(f'❌ File "{name}" already exists.')
 
         return
 
     try:
-
         channel_msg = await context.bot.send_document(
-            chat_id=CHANNEL_ID,
-            document=document.file_id,
-            caption=f"📄 {name}"
+            chat_id=CHANNEL_ID, document=document.file_id, caption=f"📄 {name}"
         )
 
         channel_file_id = channel_msg.document.file_id
@@ -1516,16 +1269,13 @@ async def save_document(
             channel_file_id,
             "document",
         ):
-
             await update.effective_message.reply_text(
                 f'❌ File "{name}" already exists.'
             )
 
             return
 
-        await update.effective_message.reply_text(
-            f"✅ Uploaded: {name}"
-        )
+        await update.effective_message.reply_text(f"✅ Uploaded: {name}")
 
         await show_location(
             update,
@@ -1533,26 +1283,20 @@ async def save_document(
         )
 
     except Exception as error:
-
-        await update.effective_message.reply_text(
-            f"❌ Upload failed:\n{error}"
-        )
+        await update.effective_message.reply_text(f"❌ Upload failed:\n{error}")
 
 
 # =========================================================
 # SAVE PHOTO
 # =========================================================
 
+
 async def save_photo(
     update,
     context,
 ):
-    if not is_admin(
-        update.effective_user.id
-    ):
-        await update.effective_message.reply_text(
-            "❌ Admin only."
-        )
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text("❌ Admin only.")
         return
 
     nav_path = context.user_data.get(
@@ -1560,67 +1304,41 @@ async def save_photo(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if not section:
-
         await update.effective_message.reply_text(
             "❌ Choose Theoretical or Practical first."
         )
 
         return
 
-    path = (
-        nav_path
-        + [section]
+    path = nav_path + [section]
+
+    message = update.effective_message
+
+    photo = message.photo[-1]
+
+    caption = message.caption or (
+        "photo_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
     )
 
-    message = (
-        update.effective_message
-    )
-
-    photo = (
-        message.photo[-1]
-    )
-
-    caption = (
-        message.caption
-        or (
-            "photo_"
-            + datetime.now().strftime(
-                "%Y%m%d_%H%M%S"
-            )
-            + ".jpg"
-        )
-    )
-
-    name = sanitize_filename(
-        caption
-    )
+    name = sanitize_filename(caption)
 
     if "." not in Path(name).name:
-
         name += ".jpg"
 
     if file_exists(
         path,
         name,
     ):
-
-        await message.reply_text(
-            f'❌ File "{name}" already exists.'
-        )
+        await message.reply_text(f'❌ File "{name}" already exists.')
 
         return
 
     try:
-
         channel_msg = await context.bot.send_photo(
-            chat_id=CHANNEL_ID,
-            photo=photo.file_id,
-            caption=f"🖼️ {name}"
+            chat_id=CHANNEL_ID, photo=photo.file_id, caption=f"🖼️ {name}"
         )
 
         channel_file_id = channel_msg.photo[-1].file_id
@@ -1631,16 +1349,11 @@ async def save_photo(
             channel_file_id,
             "photo",
         ):
-
-            await message.reply_text(
-                f'❌ File "{name}" already exists.'
-            )
+            await message.reply_text(f'❌ File "{name}" already exists.')
 
             return
 
-        await message.reply_text(
-            f"✅ Uploaded: {name}"
-        )
+        await message.reply_text(f"✅ Uploaded: {name}")
 
         await show_location(
             update,
@@ -1648,26 +1361,20 @@ async def save_photo(
         )
 
     except Exception as error:
-
-        await message.reply_text(
-            f"❌ Upload failed:\n{error}"
-        )
+        await message.reply_text(f"❌ Upload failed:\n{error}")
 
 
 # =========================================================
 # SAVE AUDIO / VOICE
 # =========================================================
 
+
 async def save_audio_or_voice(
     update,
     context,
 ):
-    if not is_admin(
-        update.effective_user.id
-    ):
-        await update.effective_message.reply_text(
-            "❌ Admin only."
-        )
+    if not is_admin(update.effective_user.id):
+        await update.effective_message.reply_text("❌ Admin only.")
         return
 
     nav_path = context.user_data.get(
@@ -1675,44 +1382,25 @@ async def save_audio_or_voice(
         [],
     )
 
-    section = context.user_data.get(
-        "section"
-    )
+    section = context.user_data.get("section")
 
     if not section:
-
         await update.effective_message.reply_text(
             "❌ Choose Theoretical or Practical first."
         )
 
         return
 
-    path = (
-        nav_path
-        + [section]
-    )
+    path = nav_path + [section]
 
-    message = (
-        update.effective_message
-    )
+    message = update.effective_message
 
     try:
-
         if message.audio:
+            telegram_file = message.audio
 
-            telegram_file = (
-                message.audio
-            )
-
-            name = (
-                message.audio.file_name
-                or (
-                    "audio_"
-                    + datetime.now().strftime(
-                        "%Y%m%d_%H%M%S"
-                    )
-                    + ".mp3"
-                )
+            name = message.audio.file_name or (
+                "audio_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".mp3"
             )
 
             file_type = "audio"
@@ -1726,23 +1414,14 @@ async def save_audio_or_voice(
             channel_msg = await context.bot.send_audio(
                 chat_id=CHANNEL_ID,
                 audio=telegram_file.file_id,
-                caption=f"🎵 {name}"
+                caption=f"🎵 {name}",
             )
             channel_file_id = channel_msg.audio.file_id
 
         elif message.voice:
+            telegram_file = message.voice
 
-            telegram_file = (
-                message.voice
-            )
-
-            name = (
-                "voice_"
-                + datetime.now().strftime(
-                    "%Y%m%d_%H%M%S"
-                )
-                + ".ogg"
-            )
+            name = "voice_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".ogg"
 
             file_type = "voice"
 
@@ -1767,16 +1446,11 @@ async def save_audio_or_voice(
             channel_file_id,
             file_type,
         ):
-
-            await message.reply_text(
-                f'❌ File "{name}" already exists.'
-            )
+            await message.reply_text(f'❌ File "{name}" already exists.')
 
             return
 
-        await message.reply_text(
-            f"✅ Uploaded: {name}"
-        )
+        await message.reply_text(f"✅ Uploaded: {name}")
 
         await show_location(
             update,
@@ -1784,26 +1458,21 @@ async def save_audio_or_voice(
         )
 
     except Exception as error:
-
-        await message.reply_text(
-            f"❌ Upload failed:\n{error}"
-        )
+        await message.reply_text(f"❌ Upload failed:\n{error}")
 
 
 # =========================================================
 # MEDIA HANDLER
 # =========================================================
 
+
 async def save_media(
     update,
     context,
 ):
-    message = (
-        update.effective_message
-    )
+    message = update.effective_message
 
     if message.document:
-
         await save_document(
             update,
             context,
@@ -1812,7 +1481,6 @@ async def save_media(
         return
 
     if message.photo:
-
         await save_photo(
             update,
             context,
@@ -1820,11 +1488,7 @@ async def save_media(
 
         return
 
-    if (
-        message.audio
-        or message.voice
-    ):
-
+    if message.audio or message.voice:
         await save_audio_or_voice(
             update,
             context,
@@ -1837,6 +1501,7 @@ async def save_media(
 # MAIN MESSAGE HANDLER
 # =========================================================
 
+
 async def on_message(
     update,
     context,
@@ -1844,17 +1509,9 @@ async def on_message(
     if not update.effective_message:
         return
 
-    message = (
-        update.effective_message
-    )
+    message = update.effective_message
 
-    if (
-        message.document
-        or message.photo
-        or message.audio
-        or message.voice
-    ):
-
+    if message.document or message.photo or message.audio or message.voice:
         await save_media(
             update,
             context,
@@ -1863,7 +1520,6 @@ async def on_message(
         return
 
     if message.text:
-
         await handle_text(
             update,
             context,
@@ -1871,66 +1527,8 @@ async def on_message(
 
 
 # =========================================================
-# MAIN
-# =========================================================
-
-def main():
-
-    print(
-        "PT MATERIALS BOT STARTING",
-        flush=True,
-    )
-
-    if not BOT_TOKEN:
-
-        raise RuntimeError(
-            "BOT_TOKEN is not set."
-        )
-
-    Path(
-        DB_PATH
-    ).parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    connection = get_db()
-    connection.close()
-
-    app = (
-        Application
-        .builder()
-        .token(BOT_TOKEN)
-        .build()
-    )
-
-    app.add_handler(
-        CommandHandler(
-            "start",
-            start,
-        )
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.ALL,
-            on_message,
-        )
-    )
-
-    print(
-        "BOT IS RUNNING...",
-        flush=True,
-    )
-
-    app.run_polling(
-        drop_pending_updates=True
-    )
-
-
-# =========================================================
-# RUN
+# LOCAL DEVELOPMENT RUN
 # =========================================================
 
 if __name__ == "__main__":
-    main()
+    flask_app.run(host="0.0.0.0", port=5000)
