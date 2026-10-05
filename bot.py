@@ -13,7 +13,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 # CONFIG
 # =========================================================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGEN6nrGYE0kWYVYV0JdDjeKBIAUSoeJ004")
 VERCEL_URL = os.getenv("VERCEL_URL")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -24,7 +24,10 @@ ADMIN_IDS = {6448008082, 8791458947, 8881717605, 1343988861, 1892584502}
 
 supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Supabase init error: {e}")
 
 # =========================================================
 # BUTTONS
@@ -510,7 +513,3 @@ async def save_photo(update, context):
         if not add_file(path, name, channel_file_id, "photo"):
             await message.reply_text(f'❌ File "{name}" already exists.')
             return
-
-        await message.reply_text(f"✅ Uploaded: {name}")
-        await show_location(update, context)
-    except Exception as error:
