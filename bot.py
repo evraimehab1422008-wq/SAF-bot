@@ -13,7 +13,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 # CONFIG
 # =========================================================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8791458947:AAGEN6nrGYE0kWYVYV0JdDjeKBIAUSoeJ004")
+BOT_TOKEN = os.getenv("BOT_TOKEN", ":8791458947:AAGEN6nrGYE0KWYyV0JdDjcKBIAUSocJ004")
 VERCEL_URL = os.getenv("VERCEL_URL")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
