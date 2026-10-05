@@ -513,3 +513,49 @@ async def save_photo(update, context):
         if not add_file(path, name, channel_file_id, "photo"):
             await message.reply_text(f'❌ File "{name}" already exists.')
             return
+
+        await message.reply_text(f"✅ Uploaded: {name}")
+        await show_location(update, context)
+    except Exception as error:
+        await message.reply_text(f"❌ Upload failed:\n{error}")
+
+# =========================================================
+# TELEGRAM APPLICATION INITIALIZATION
+# =========================================================
+
+ptb_app = Application.builder().token(BOT_TOKEN).build()
+ptb_app.add_handler(CommandHandler("start", start))
+ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+ptb_app.add_handler(MessageHandler(filters.Document.ALL, save_document))
+ptb_app.add_handler(MessageHandler(filters.PHOTO, save_photo))
+
+# =========================================================
+# FLASK WEB SERVER FOR VERCEL
+# =========================================================
+
+flask_app = Flask(__name__)
+
+@flask_app.route("/", methods=["GET", "POST"])
+@flask_app.route("/api/webhook", methods=["GET", "POST"])
+def webhook():
+    if request.method == "POST":
+        try:
+            data = request.get_json(force=True)
+            update = Update.de_json(data, ptb_app.bot)
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(ptb_app.process_update(update))
+            loop.close()
+
+            return jsonify({"status": "ok"}), 200
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return "Bot is running perfectly on Vercel!", 200
+
+# Top-level entrypoint required by Vercel
+app = flask_app
+
+if __name__ == "__main__":
+    flask_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
