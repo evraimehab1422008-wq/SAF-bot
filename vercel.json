@@ -1,5 +1,8 @@
 {
-  "version": 2,
+  "env": {
+    "SUPABASE_URL": "https://pedukkkqnfcojwtzqist.supabase.co/rest/v1/",
+    "SUPABASE_KEY": "sb_publishable_IVMIzq5xUKCyUnQKxZJpBg_zc5nII6K"
+  },
   "builds": [
     {
       "src": "bot.py",
