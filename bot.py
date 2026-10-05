@@ -1,11 +1,11 @@
 import asyncio
 import os
 import re
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 from flask import Flask, jsonify, request
+from supabase import create_client, Client
 from telegram import ReplyKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -16,12 +16,15 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 VERCEL_URL = os.getenv("VERCEL_URL")
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
 CHANNEL_ID = -1004459581470
-
-# تعديل مسار قاعدة البيانات لتناسب بيئة Vercel القابلة للقراءة فقط
-DB_PATH = os.getenv("DB_PATH", "/tmp/bot_database.db")
-
 ADMIN_IDS = {6448008082, 8791458947, 8881717605, 1343988861, 1892584502}
+
+supabase: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # =========================================================
 # BUTTONS
@@ -44,425 +47,122 @@ SECTION_NAMES = {
 # =========================================================
 
 STRUCTURE = {
-    # =====================================================
-    # LEVEL 1
-    # =====================================================
     "🔴 Level 1": {
         "Semester 1": {
-            "🦴 Anatomy I": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🧪 Biochemistry I": {
-                "type": "subject",
-                "lab": False,
-            },
-            "🔬 Histology": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🫀 Physiology I": {
-                "type": "subject",
-                "lab": True,
-            },
+            "🦴 Anatomy I": {"type": "subject", "lab": True},
+            "🧪 Biochemistry I": {"type": "subject", "lab": False},
+            "🔬 Histology": {"type": "subject", "lab": True},
+            "🫀 Physiology I": {"type": "subject", "lab": True},
         },
         "Semester 2": {
-            "🦴 Anatomy II": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🧪 Biochemistry II": {
-                "type": "subject",
-                "lab": False,
-            },
-            "🫀 Physiology II": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🏃 Kinesiology I": {
-                "type": "subject",
-                "lab": True,
-            },
-            "⚡ Biophysics": {
-                "type": "subject",
-                "lab": True,
-            },
+            "🦴 Anatomy II": {"type": "subject", "lab": True},
+            "🧪 Biochemistry II": {"type": "subject", "lab": False},
+            "🫀 Physiology II": {"type": "subject", "lab": True},
+            "🏃 Kinesiology I": {"type": "subject", "lab": True},
+            "⚡ Biophysics": {"type": "subject", "lab": True},
         },
     },
-    # =====================================================
-    # LEVEL 2
-    # =====================================================
     "🟠 Level 2": {
         "Semester 3": {
-            "🧠 Neuroanatomy": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🦾 Biomechanics II": {
-                "type": "subject",
-                "lab": False,
-            },
-            "⚡ Electrotherapy I": {
-                "type": "subject",
-                "lab": True,
-            },
-            "📋 Evaluation I": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🧠 Neurophysiology": {
-                "type": "subject",
-                "lab": False,
-            },
-            "🏋 Therapeutic Ex. I": {
-                "type": "subject",
-                "lab": True,
-            },
+            "🧠 Neuroanatomy": {"type": "subject", "lab": True},
+            "🦾 Biomechanics II": {"type": "subject", "lab": False},
+            "⚡ Electrotherapy I": {"type": "subject", "lab": True},
+            "📋 Evaluation I": {"type": "subject", "lab": True},
+            "🧠 Neurophysiology": {"type": "subject", "lab": False},
+            "🏋 Therapeutic Ex. I": {"type": "subject", "lab": True},
         },
         "Semester 4": {
-            "🦾 Biomechanics III": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🩺 Community Health": {
-                "type": "subject",
-                "lab": False,
-            },
-            "📋 Evaluation II": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🫀 Exercise Physiology": {
-                "type": "subject",
-                "lab": False,
-            },
-            "🔬 Pathology": {
-                "type": "subject",
-                "lab": False,
-            },
-            "👐 Manual Therapy": {
-                "type": "subject",
-                "lab": True,
-            },
-            "⚡ Electrotherapy II": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🦴 Anatomy IV": {
-                "type": "subject",
-                "lab": True,
-            },
-            "⚖️ Legal & Ethics": {
-                "type": "subject",
-                "lab": False,
-            },
+            "🦾 Biomechanics III": {"type": "subject", "lab": True},
+            "🩺 Community Health": {"type": "subject", "lab": False},
+            "📋 Evaluation II": {"type": "subject", "lab": True},
+            "🫀 Exercise Physiology": {"type": "subject", "lab": False},
+            "🔬 Pathology": {"type": "subject", "lab": False},
+            "👐 Manual Therapy": {"type": "subject", "lab": True},
+            "⚡ Electrotherapy II": {"type": "subject", "lab": True},
+            "🦴 Anatomy IV": {"type": "subject", "lab": True},
+            "⚖️ Legal & Ethics": {"type": "subject", "lab": False},
         },
     },
-    # =====================================================
-    # LEVEL 3
-    # =====================================================
     "🟡 Level 3": {
         "Semester 5": {
-            "🦾 Biomechanics IV": {
-                "type": "subject",
-                "lab": True,
-            },
-            "🌊 Hydrotherapy": {
-                "type": "subject",
-                "lab": True,
-            },
-            "📊 Research & Statistics": {
-                "type": "subject",
-                "lab": False,
-            },
-            "💼 Management & Decision": {
-                "type": "subject",
-                "lab": False,
-            },
-            "🩺 Pathophysiology": {
-                "type": "subject",
-                "lab": False,
-            },
-            "💊 Pharmacology": {
-                "type": "subject",
-                "lab": False,
-            },
-            "♿ Rehabilitation": {
-                "type": "subject",
-                "lab": False,
-            },
+            "🦾 Biomechanics IV": {"type": "subject", "lab": True},
+            "🌊 Hydrotherapy": {"type": "subject", "lab": True},
+            "📊 Research & Statistics": {"type": "subject", "lab": False},
+            "💼 Management & Decision": {"type": "subject", "lab": False},
+            "🩺 Pathophysiology": {"type": "subject", "lab": False},
+            "💊 Pharmacology": {"type": "subject", "lab": False},
+            "♿ Rehabilitation": {"type": "subject", "lab": False},
         },
     },
-    # =====================================================
-    # TRACKS
-    # =====================================================
     "🟢 Tracks": {
-        # BATNA
         "🫀 Batna Track": {
-            '🫁 PH pulmonary "CAPU324"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🩺 Medicine pulmonary "MED.314PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '👴 Geriatric rehabilitation "CAPU326"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '❤️ PH cardio "CAPU322"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🫀 Medicine cardio "MED.312PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🏥 Hospital "CAPU312+CAPU314"': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
-            '🥗 Nutrition "BIOC312PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🩻 Radiology "RAD.312PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🧠 Psychology "PSYCH 312PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
+            '🫁 PH pulmonary "CAPU324"': {"type": "subject", "lecture": True, "lab": True},
+            '🩺 Medicine pulmonary "MED.314PT"': {"type": "subject", "lecture": True, "lab": False},
+            '👴 Geriatric rehabilitation "CAPU326"': {"type": "subject", "lecture": True, "lab": True},
+            '❤️ PH cardio "CAPU322"': {"type": "subject", "lecture": True, "lab": True},
+            '🫀 Medicine cardio "MED.312PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🏥 Hospital "CAPU312+CAPU314"': {"type": "subject", "lecture": False, "lab": True},
+            '🥗 Nutrition "BIOC312PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🩻 Radiology "RAD.312PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🧠 Psychology "PSYCH 312PT"': {"type": "subject", "lecture": True, "lab": False},
         },
-        # GYNA
         "🤰 Gyna Track": {
-            '🩹 First Aid "FIRS 411E"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🪑 Ergonomics "BIOM 411"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🔪 Ph Surgery "PT421 / SURG"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🏥 General Surgery "SURG.411"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🤰 Ph Gyna "GYPD 421PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🩺 Med Gyna "MED 411PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '📚 Evidence "PT.441"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🏥 Hospital Surgery "SURG PT411"': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
-            '🤰 Hospital Gyna "GYPD.411"': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
+            '🩹 First Aid "FIRS 411E"': {"type": "subject", "lecture": True, "lab": True},
+            '🪑 Ergonomics "BIOM 411"': {"type": "subject", "lecture": True, "lab": True},
+            '🔪 Ph Surgery "PT421 / SURG"': {"type": "subject", "lecture": True, "lab": True},
+            '🏥 General Surgery "SURG.411"': {"type": "subject", "lecture": True, "lab": False},
+            '🤰 Ph Gyna "GYPD 421PT"': {"type": "subject", "lecture": True, "lab": True},
+            '🩺 Med Gyna "MED 411PT"': {"type": "subject", "lecture": True, "lab": False},
+            '📚 Evidence "PT.441"': {"type": "subject", "lecture": True, "lab": False},
+            '🏥 Hospital Surgery "SURG PT411"': {"type": "subject", "lecture": False, "lab": True},
+            '🤰 Hospital Gyna "GYPD.411"': {"type": "subject", "lecture": False, "lab": True},
         },
-        # ORTHO
         "🦴 Ortho Track": {
-            '🦴 PH "MUSK424"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🦿 Orthoses & Prosthesis': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🔎 Examination "MUSK422"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '⚽ Sport Physical Therapy': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🏥 Hospital "MUSK412"': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
-            '🔪 Surgery "SURGPT412"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🩺 Medicine "MED412PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🩻 Radiology "RAD.412PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
+            '🦴 PH "MUSK424"': {"type": "subject", "lecture": True, "lab": True},
+            '🦿 Orthoses & Prosthesis': {"type": "subject", "lecture": True, "lab": True},
+            '🔎 Examination "MUSK422"': {"type": "subject", "lecture": True, "lab": True},
+            '⚽ Sport Physical Therapy': {"type": "subject", "lecture": True, "lab": True},
+            '🏥 Hospital "MUSK412"': {"type": "subject", "lecture": False, "lab": True},
+            '🔪 Surgery "SURGPT412"': {"type": "subject", "lecture": True, "lab": False},
+            '🩺 Medicine "MED412PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🩻 Radiology "RAD.412PT"': {"type": "subject", "lecture": True, "lab": True},
         },
-        # NEURO
         "🧠 Neuro Track": {
-            '🧠 Topic "NEUR526"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🏃 Motor "PT541"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🩺 medicine "MED512PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🦴 spinal "NEUR524"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🧠 Neurosurgery "SURG512PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🧠 PH "NEUR.522"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '📈 EMG "NEUR.525"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🏥 Hospital "NEUR512" + Spinal sec': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
+            '🧠 Topic "NEUR526"': {"type": "subject", "lecture": True, "lab": True},
+            '🏃 Motor "PT541"': {"type": "subject", "lecture": True, "lab": False},
+            '🩺 medicine "MED512PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🦴 spinal "NEUR524"': {"type": "subject", "lecture": True, "lab": True},
+            '🧠 Neurosurgery "SURG512PT"': {"type": "subject", "lecture": True, "lab": False},
+            '🧠 PH "NEUR.522"': {"type": "subject", "lecture": True, "lab": True},
+            '📈 EMG "NEUR.525"': {"type": "subject", "lecture": True, "lab": True},
+            '🏥 Hospital "NEUR512" + Spinal sec': {"type": "subject", "lecture": False, "lab": True},
         },
-        # PEDS
         "👶 Peds Track": {
-            '🏥 Hospital "GYPD 511"': {
-                "type": "subject",
-                "lecture": False,
-                "lab": True,
-            },
-            '👶 Ph "GYPD 525"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🩺 Surgery "GYPD 527"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '👶 Motor development "GYPD 521"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": True,
-            },
-            '🗣️ Speech Therapy "GYPD 529"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '👐 Occupational Therapy "OT.511"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
-            '🩺 Medicine "MED.511PT"': {
-                "type": "subject",
-                "lecture": True,
-                "lab": False,
-            },
+            '🏥 Hospital "GYPD 511"': {"type": "subject", "lecture": False, "lab": True},
+            '👶 Ph "GYPD 525"': {"type": "subject", "lecture": True, "lab": True},
+            '🩺 Surgery "GYPD 527"': {"type": "subject", "lecture": True, "lab": True},
+            '👶 Motor development "GYPD 521"': {"type": "subject", "lecture": True, "lab": True},
+            '🗣️ Speech Therapy "GYPD 529"': {"type": "subject", "lecture": True, "lab": False},
+            '👐 Occupational Therapy "OT.511"': {"type": "subject", "lecture": True, "lab": False},
+            '🩺 Medicine "MED.511PT"': {"type": "subject", "lecture": True, "lab": False},
         },
     },
 }
 
 # =========================================================
-# DATABASE
+# DATABASE (SUPABASE INTEGRATION)
 # =========================================================
-
-
-def get_db():
-    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            path_key TEXT NOT NULL,
-            name TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(path_key, name)
-        )
-    """
-    )
-    conn.commit()
-    return conn
-
-
-# =========================================================
-# HELPERS
-# =========================================================
-
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-
 def make_path_key(path):
     return " / ".join(path)
-
 
 def sanitize_filename(name):
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
     name = name.strip().strip(".")
     return name if name else "file"
-
 
 def get_node(path):
     node = STRUCTURE
@@ -474,83 +174,53 @@ def get_node(path):
         node = node[part]
     return node
 
-
 def get_files(path):
-    conn = get_db()
-    rows = conn.execute(
-        """
-        SELECT id, name, file_path, file_type
-        FROM files
-        WHERE path_key = ?
-        ORDER BY id
-        """,
-        (make_path_key(path),),
-    ).fetchall()
-    conn.close()
-    return rows
-
+    if not supabase:
+        return []
+    res = supabase.table("files").select("id, name, file_path, file_type").eq("path_key", make_path_key(path)).order("id").execute()
+    return [(row['id'], row['name'], row['file_path'], row['file_type']) for row in res.data]
 
 def file_exists(path, name):
-    conn = get_db()
-    row = conn.execute(
-        """
-        SELECT id FROM files WHERE path_key = ? AND name = ?
-        """,
-        (make_path_key(path), name),
-    ).fetchone()
-    conn.close()
-    return row is not None
-
+    if not supabase:
+        return False
+    res = supabase.table("files").select("id").eq("path_key", make_path_key(path)).eq("name", name).execute()
+    return len(res.data) > 0
 
 def add_file(path, name, file_id_ref, file_type):
-    conn = get_db()
-    try:
-        conn.execute(
-            """
-            INSERT INTO files (path_key, name, file_path, file_type, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                make_path_key(path),
-                name,
-                str(file_id_ref),
-                file_type,
-                datetime.utcnow().isoformat(),
-            ),
-        )
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
+    if not supabase:
         return False
-    finally:
-        conn.close()
-
+    try:
+        data = {
+            "path_key": make_path_key(path),
+            "name": name,
+            "file_path": str(file_id_ref),
+            "file_type": file_type,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        supabase.table("files").insert(data).execute()
+        return True
+    except Exception:
+        return False
 
 def remove_file(file_id):
-    conn = get_db()
-    conn.execute("DELETE FROM files WHERE id = ?", (file_id,))
-    conn.commit()
-    conn.close()
+    if not supabase:
+        return False
+    supabase.table("files").delete().eq("id", file_id).execute()
     return True
-
 
 def make_keyboard(rows):
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
-
 def pair_buttons(items):
     return [items[i : i + 2] for i in range(0, len(items), 2)]
-
 
 def format_subject_button(name):
     match = re.match(r'^(.*?)\s+("[^"]+")$', name)
     return f"{match.group(1)}\n{match.group(2)}" if match else name
 
-
 def split_subject_title(name):
     match = re.match(r'^(.*?)\s+("[^"]+")$', name)
     return f"{match.group(1)}\n{match.group(2)}" if match else name
-
 
 def subject_sections(node):
     has_lecture = node.get("lecture", True if "lecture" not in node else False)
@@ -565,11 +235,9 @@ def subject_sections(node):
         sections.append(PRACTICAL)
     return sections
 
-
 # =========================================================
 # BOT COMMANDS & NAVIGATION HANDLERS
 # =========================================================
-
 
 async def show_home(update, context):
     context.user_data.clear()
@@ -583,10 +251,7 @@ async def show_home(update, context):
     if is_admin(update.effective_user.id):
         rows.append([DELETE])
 
-    await update.effective_message.reply_text(
-        "🏠 Home", reply_markup=make_keyboard(rows)
-    )
-
+    await update.effective_message.reply_text("🏠 Home", reply_markup=make_keyboard(rows))
 
 async def show_location(update, context):
     nav_path = context.user_data.get("nav_path", [])
@@ -601,14 +266,8 @@ async def show_location(update, context):
             rows.append([DELETE])
         rows.append([BACK, HOME])
 
-        message = (
-            f"{section}\n\n📂 Choose a file:"
-            if files
-            else f"{section}\n\n📂 No files here yet."
-        )
-        await update.effective_message.reply_text(
-            message, reply_markup=make_keyboard(rows)
-        )
+        message = f"{section}\n\n📂 Choose a file:" if files else f"{section}\n\n📂 No files here yet."
+        await update.effective_message.reply_text(message, reply_markup=make_keyboard(rows))
         return
 
     node = get_node(nav_path)
@@ -618,9 +277,7 @@ async def show_location(update, context):
         rows = pair_buttons(sections)
         rows.append([BACK, HOME])
         title = split_subject_title(nav_path[-1])
-        await update.effective_message.reply_text(
-            title, reply_markup=make_keyboard(rows)
-        )
+        await update.effective_message.reply_text(title, reply_markup=make_keyboard(rows))
         return
 
     if not isinstance(node, dict):
@@ -644,14 +301,10 @@ async def show_location(update, context):
         rows.append([BACK, HOME])
 
     title = split_subject_title(nav_path[-1]) if nav_path else "🏠 Home"
-    await update.effective_message.reply_text(
-        title, reply_markup=make_keyboard(rows)
-    )
-
+    await update.effective_message.reply_text(title, reply_markup=make_keyboard(rows))
 
 async def start(update, context):
     await show_home(update, context)
-
 
 async def handle_back(update, context):
     nav_path = context.user_data.get("nav_path", [])
@@ -672,10 +325,8 @@ async def handle_back(update, context):
 
     await show_home(update, context)
 
-
 async def handle_home(update, context):
     await show_home(update, context)
-
 
 async def handle_delete_mode(update, context):
     if not is_admin(update.effective_user.id):
@@ -699,35 +350,23 @@ async def handle_delete_mode(update, context):
     rows = [[name] for _, name, _, _ in files]
     rows.append([BACK, HOME])
 
-    await update.effective_message.reply_text(
-        "🗑 Select the file you want to delete:", reply_markup=make_keyboard(rows)
-    )
-
+    await update.effective_message.reply_text("🗑 Select the file you want to delete:", reply_markup=make_keyboard(rows))
 
 async def send_saved_file(update, row):
     _, name, file_id_ref, file_type = row
     try:
         if file_type == "document":
-            await update.effective_message.reply_document(
-                document=file_id_ref, caption=name
-            )
+            await update.effective_message.reply_document(document=file_id_ref, caption=name)
         elif file_type == "photo":
-            await update.effective_message.reply_photo(
-                photo=file_id_ref, caption=name
-            )
+            await update.effective_message.reply_photo(photo=file_id_ref, caption=name)
         elif file_type == "audio":
-            await update.effective_message.reply_audio(
-                audio=file_id_ref, caption=name
-            )
+            await update.effective_message.reply_audio(audio=file_id_ref, caption=name)
         elif file_type == "voice":
             await update.effective_message.reply_voice(voice=file_id_ref)
         else:
-            await update.effective_message.reply_document(
-                document=file_id_ref, caption=name
-            )
+            await update.effective_message.reply_document(document=file_id_ref, caption=name)
     except Exception as error:
         await update.effective_message.reply_text(f"❌ Could not send file:\n{error}")
-
 
 async def handle_text(update, context):
     text = update.effective_message.text or ""
@@ -801,7 +440,6 @@ async def handle_text(update, context):
 
     await update.effective_message.reply_text("❌ Please choose a button.")
 
-
 async def save_document(update, context):
     if not is_admin(update.effective_user.id):
         await update.effective_message.reply_text("❌ Admin only.")
@@ -811,16 +449,12 @@ async def save_document(update, context):
     section = context.user_data.get("section")
 
     if not section:
-        await update.effective_message.reply_text(
-            "❌ Choose Theoretical or Practical first."
-        )
+        await update.effective_message.reply_text("❌ Choose Theoretical or Practical first.")
         return
 
     path = nav_path + [section]
     document = update.effective_message.document
-    original_name = document.file_name or (
-        "file_" + datetime.now().strftime("%Y%m%d_%H%M%S")
-    )
+    original_name = document.file_name or ("file_" + datetime.now().strftime("%Y%m%d_%H%M%S"))
     name = sanitize_filename(original_name)
 
     if file_exists(path, name):
@@ -842,7 +476,6 @@ async def save_document(update, context):
     except Exception as error:
         await update.effective_message.reply_text(f"❌ Upload failed:\n{error}")
 
-
 async def save_photo(update, context):
     if not is_admin(update.effective_user.id):
         await update.effective_message.reply_text("❌ Admin only.")
@@ -852,17 +485,13 @@ async def save_photo(update, context):
     section = context.user_data.get("section")
 
     if not section:
-        await update.effective_message.reply_text(
-            "❌ Choose Theoretical or Practical first."
-        )
+        await update.effective_message.reply_text("❌ Choose Theoretical or Practical first.")
         return
 
     path = nav_path + [section]
     message = update.effective_message
     photo = message.photo[-1]
-    caption = message.caption or (
-        "photo_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
-    )
+    caption = message.caption or ("photo_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg")
 
     name = sanitize_filename(caption)
     if "." not in Path(name).name:
@@ -885,147 +514,3 @@ async def save_photo(update, context):
         await message.reply_text(f"✅ Uploaded: {name}")
         await show_location(update, context)
     except Exception as error:
-        await message.reply_text(f"❌ Upload failed:\n{error}")
-
-
-async def save_audio_or_voice(update, context):
-    if not is_admin(update.effective_user.id):
-        await update.effective_message.reply_text("❌ Admin only.")
-        return
-
-    nav_path = context.user_data.get("nav_path", [])
-    section = context.user_data.get("section")
-
-    if not section:
-        await update.effective_message.reply_text(
-            "❌ Choose Theoretical or Practical first."
-        )
-        return
-
-    path = nav_path + [section]
-    message = update.effective_message
-
-    try:
-        if message.audio:
-            telegram_file = message.audio
-            name = message.audio.file_name or (
-                "audio_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".mp3"
-            )
-            file_type = "audio"
-            name = sanitize_filename(name)
-
-            if file_exists(path, name):
-                await message.reply_text(f'❌ File "{name}" already exists.')
-                return
-
-            channel_msg = await context.bot.send_audio(
-                chat_id=CHANNEL_ID,
-                audio=telegram_file.file_id,
-                caption=f"🎵 {name}",
-            )
-            channel_file_id = channel_msg.audio.file_id
-
-        elif message.voice:
-            telegram_file = message.voice
-            name = "voice_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".ogg"
-            file_type = "voice"
-            name = sanitize_filename(name)
-
-            if file_exists(path, name):
-                await message.reply_text(f'❌ File "{name}" already exists.')
-                return
-
-            channel_msg = await context.bot.send_voice(
-                chat_id=CHANNEL_ID, voice=telegram_file.file_id
-            )
-            channel_file_id = channel_msg.voice.file_id
-        else:
-            return
-
-        if not add_file(path, name, channel_file_id, file_type):
-            await message.reply_text(f'❌ File "{name}" already exists.')
-            return
-
-        await message.reply_text(f"✅ Uploaded: {name}")
-        await show_location(update, context)
-    except Exception as error:
-        await message.reply_text(f"❌ Upload failed:\n{error}")
-
-
-async def save_media(update, context):
-    message = update.effective_message
-    if message.document:
-        await save_document(update, context)
-        return
-    if message.photo:
-        await save_photo(update, context)
-        return
-    if message.audio or message.voice:
-        await save_audio_or_voice(update, context)
-        return
-
-
-async def on_message(update, context):
-    if not update.effective_message:
-        return
-    message = update.effective_message
-    if message.document or message.photo or message.audio or message.voice:
-        await save_media(update, context)
-        return
-    if message.text:
-        await handle_text(update, context)
-
-
-# =========================================================
-# VERCEL / SERVERLESS INTEGRATION (الجزئية المضافة فقط للتشغيل)
-# =========================================================
-
-app = Flask(__name__)
-telegram_app = None
-
-
-def setup_telegram_app():
-    global telegram_app
-    if telegram_app is not None:
-        return telegram_app
-
-    get_db()
-
-    telegram_app = Application.builder().token(BOT_TOKEN).build()
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(MessageHandler(filters.ALL, on_message))
-    return telegram_app
-
-
-@app.route("/", methods=["GET"])
-def index():
-    return "Bot is active on Vercel!"
-
-
-@app.route("/api/webhook", methods=["POST"])
-def webhook():
-    if not BOT_TOKEN:
-        return jsonify({"error": "BOT_TOKEN missing"}), 500
-
-    bot = setup_telegram_app()
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    if not bot._initialized:
-        loop.run_until_complete(bot.initialize())
-
-    if request.method == "POST":
-        req_data = request.get_json(force=True)
-        update = Update.de_json(req_data, bot.bot)
-        loop.run_until_complete(bot.process_update(update))
-        return "OK", 200
-
-    return "Method Not Allowed", 405
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
